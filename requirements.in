@@ -1,0 +1,10 @@
+librosa
+pandas
+python-osc
+torch
+
+black[jupyter]
+flake8
+isort
+mypy
+pytest
