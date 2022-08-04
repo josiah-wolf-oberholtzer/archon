@@ -51,7 +51,7 @@ jobs:
       with:
         python-version: 3.9
     - name: Install APT packages
-      run: apt-get install -y libsndfile1
+      run: sudo apt-get install -y libsndfile1
     - name: Install Python requirements
       run: pip install -r requirements.txt
     - name: Install Archon
