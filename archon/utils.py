@@ -1,6 +1,7 @@
 import os
 from contextlib import contextmanager
 from time import perf_counter
+from typing import Callable, Generator
 
 
 @contextmanager
@@ -14,6 +15,9 @@ def cd(path: os.PathLike):
 
 
 @contextmanager
-def timer() -> float:
+def timer() -> Generator[Callable[[], float], None, None]:
+    def get_time() -> float:
+        return perf_counter() - start
+
     start = perf_counter()
-    yield lambda: perf_counter() - start
+    yield get_time

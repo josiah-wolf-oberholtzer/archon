@@ -7,6 +7,9 @@ black-reformat: ## Reformat via black
 isort: ## Reformat via isort
 	isort --case-sensitive --multi-line 3 --trailing-comma --use-parentheses .
 
+mypy:  ## Run mypy
+	mypy --ignore-missing-imports archon
+
 reformat: ## Reformat codebase
 	make isort
 	make black-reformat

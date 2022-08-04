@@ -3,10 +3,8 @@ import hashlib
 import json
 import logging
 import math
-import os
-import time
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 import librosa
 import numpy
@@ -120,10 +118,9 @@ def partition(
             rolloff = analysis.rolloff[start_index:stop_index]
             # hash the underlying data
             hasher = hashlib.sha1()
-            for data in (centroid, is_voiced, f0, flatness, rms, rolloff):
-                hasher.update(data)
+            for array in (centroid, is_voiced, f0, flatness, rms, rolloff):
+                hasher.update(array.data)
             digest = hasher.hexdigest()
-            #
             computed_f0 = -1.0
             if computed_is_voiced := numpy.median(is_voiced):
                 computed_f0 = float(
@@ -131,7 +128,7 @@ def partition(
                 )
             # yield the partition
             partition = Partition(
-                path=str(analysis.path),
+                path=analysis.path,
                 digest=digest,
                 start_frame=start_index * analysis.hop_length,
                 frame_count=(stop_index - start_index) * analysis.hop_length,
@@ -152,7 +149,7 @@ def run(input_path: Path, output_path: Path):
         raise ValueError(input_path)
     logger.info(f"Running pipeline on {input_path} ...")
     with timer() as t:
-        statistics = {}
+        statistics: Dict[str, List[float]] = {}
         partitions = {}
         for audio_path in input_path.glob("**/*.wav"):
             with cd(input_path):
@@ -177,18 +174,19 @@ def run(input_path: Path, output_path: Path):
                 if x.rms < 0.01:  # Ignore silence
                     continue
                 partitions[x.digest] = x  # Use the hash to ignore duplicates
-        for key, value in statistics.items():  # min, mean, max
-            statistics[key] = {
-                "min": value[0],
-                "mean": value[2] / value[3],
-                "max": value[1],
-            }
         data = {
             "partitions": sorted(
                 (vars(x) for x in partitions.values()),
                 key=lambda x: (x["path"], x["start_frame"]),
             ),
-            "statistics": statistics,
+            "statistics": {
+                key: {
+                    "minimum": value[0],
+                    "mean": float(value[2]) / value[3],
+                    "maximum": value[1],
+                }
+                for key, value in statistics.items()
+            },
         }
         output_path.write_text(json.dumps(data, sort_keys=True, indent=2))
         logger.info(f"... Pipeline finished in {t():.4f} seconds")
