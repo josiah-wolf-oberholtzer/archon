@@ -41,7 +41,7 @@ jobs:
       run: make mypy
 
   test:
-    name: Lint
+    name: Test
     needs: [cancel]
     runs-on: ubuntu-latest
     steps:
