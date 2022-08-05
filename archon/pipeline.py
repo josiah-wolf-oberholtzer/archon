@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import math
+import sys
 from pathlib import Path
 from typing import Dict, List
 
@@ -190,3 +191,20 @@ def run(input_path: Path, output_path: Path):
         }
         output_path.write_text(json.dumps(data, sort_keys=True, indent=2))
         logger.info(f"... Pipeline finished in {t():.4f} seconds")
+
+
+def validate(analysis_path: Path):
+    logger.info(f"Validating {analysis_path} ...")
+    analysis = json.loads(analysis_path.read_text())
+    root_path = analysis_path.parent
+    missing = False
+    for audio_path in sorted(
+        set(root_path / x["path"] for x in analysis["partitions"])
+    ):
+        if audio_path.exists():
+            logger.info(f"- {audio_path}: exists!")
+        else:
+            logger.warning(f"- {audio_path}: missing!")
+            missing = True
+    if missing:
+        sys.exit("Could not locate all audio paths")
