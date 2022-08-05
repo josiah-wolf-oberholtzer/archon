@@ -33,7 +33,7 @@ class Analysis:
 
 @dataclasses.dataclass
 class Partition:
-    path: Path
+    path: str
     digest: str
     start_frame: int  # frame here is a sample frame
     frame_count: int  # frame here is a sample fram
@@ -128,7 +128,7 @@ def partition(
                 )
             # yield the partition
             partition = Partition(
-                path=analysis.path,
+                path=str(analysis.path),
                 digest=digest,
                 start_frame=start_index * analysis.hop_length,
                 frame_count=(stop_index - start_index) * analysis.hop_length,
