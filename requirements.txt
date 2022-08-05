@@ -4,6 +4,8 @@
 #
 #    pip-compile
 #
+alabaster==0.7.12
+    # via sphinx
 appdirs==1.4.4
     # via pooch
 appnope==0.1.3
@@ -22,12 +24,16 @@ attrs==22.1.0
     #   pytest
 audioread==2.1.9
     # via librosa
+babel==2.10.3
+    # via sphinx
 backcall==0.2.0
     # via ipython
 beautifulsoup4==4.11.1
     # via nbconvert
 black[jupyter]==22.6.0
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   uqbar
 bleach==5.0.1
     # via nbconvert
 certifi==2022.6.15
@@ -42,6 +48,8 @@ click==8.1.3
     # via black
 coverage[toml]==6.4.2
     # via pytest-cov
+cython==0.29.32
+    # via supriya
 debugpy==1.6.2
     # via ipykernel
 decorator==5.1.1
@@ -50,6 +58,10 @@ decorator==5.1.1
     #   librosa
 defusedxml==0.7.1
     # via nbconvert
+docutils==0.17.1
+    # via
+    #   sphinx
+    #   sphinx-rtd-theme
 entrypoints==0.4
     # via
     #   jupyter-client
@@ -62,6 +74,8 @@ flake8==5.0.2
     # via -r requirements.in
 idna==3.3
     # via requests
+imagesize==1.4.1
+    # via sphinx
 iniconfig==1.1.1
     # via pytest
 ipykernel==6.15.1
@@ -92,6 +106,7 @@ jinja2==3.1.2
     # via
     #   nbconvert
     #   notebook
+    #   sphinx
 joblib==1.1.0
     # via
     #   librosa
@@ -183,6 +198,7 @@ packaging==21.3
     #   pooch
     #   pytest
     #   qtpy
+    #   sphinx
 pandas==1.4.3
     # via -r requirements.in
 pandocfilters==1.5.0
@@ -196,7 +212,9 @@ pexpect==4.8.0
 pickleshare==0.7.5
     # via ipython
 platformdirs==2.5.2
-    # via black
+    # via
+    #   black
+    #   supriya
 pluggy==1.0.0
     # via pytest
 pooch==1.6.0
@@ -229,6 +247,7 @@ pygments==2.12.0
     #   jupyter-console
     #   nbconvert
     #   qtconsole
+    #   sphinx
 pyparsing==3.0.9
     # via packaging
 pyrsistent==0.18.1
@@ -246,7 +265,11 @@ python-dateutil==2.8.2
 python-osc==1.8.0
     # via -r requirements.in
 pytz==2022.1
-    # via pandas
+    # via
+    #   babel
+    #   pandas
+pyyaml==6.0
+    # via supriya
 pyzmq==23.2.0
     # via
     #   ipykernel
@@ -258,7 +281,9 @@ qtconsole==5.3.1
 qtpy==2.1.0
     # via qtconsole
 requests==2.28.1
-    # via pooch
+    # via
+    #   pooch
+    #   sphinx
 resampy==0.3.1
     # via librosa
 scikit-learn==1.1.1
@@ -274,12 +299,34 @@ six==1.16.0
     #   asttokens
     #   bleach
     #   python-dateutil
+snowballstemmer==2.2.0
+    # via sphinx
 soundfile==0.10.3.post1
     # via librosa
 soupsieve==2.3.2.post1
     # via beautifulsoup4
+sphinx==5.1.1
+    # via
+    #   sphinx-rtd-theme
+    #   uqbar
+sphinx-rtd-theme==1.0.0
+    # via uqbar
+sphinxcontrib-applehelp==1.0.2
+    # via sphinx
+sphinxcontrib-devhelp==1.0.2
+    # via sphinx
+sphinxcontrib-htmlhelp==2.0.0
+    # via sphinx
+sphinxcontrib-jsmath==1.0.1
+    # via sphinx
+sphinxcontrib-qthelp==1.0.3
+    # via sphinx
+sphinxcontrib-serializinghtml==1.1.5
+    # via sphinx
 stack-data==0.3.0
     # via ipython
+supriya==22.8b0
+    # via -r requirements.in
 terminado==0.15.0
     # via notebook
 threadpoolctl==3.1.0
@@ -302,6 +349,8 @@ tornado==6.2
     #   jupyter-client
     #   notebook
     #   terminado
+tqdm==4.64.0
+    # via supriya
 traitlets==5.3.0
     # via
     #   ipykernel
@@ -319,6 +368,10 @@ typing-extensions==4.3.0
     # via
     #   mypy
     #   torch
+unidecode==1.3.4
+    # via uqbar
+uqbar==0.5.9
+    # via supriya
 urllib3==1.26.11
     # via requests
 wcwidth==0.2.5

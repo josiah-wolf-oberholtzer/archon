@@ -2,6 +2,7 @@ jupyter
 librosa
 pandas
 python-osc
+supriya
 torch
 
 black[jupyter]
