@@ -1,10 +1,15 @@
 import dataclasses
 import json
+import logging
 from pathlib import Path
 from typing import List, Tuple
 
 import numpy
 from scipy.spatial import KDTree
+
+from .utils import timer
+
+logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -51,40 +56,43 @@ class Database:
 
     @classmethod
     def new(cls, analysis_path: Path) -> "Database":
-        analysis = json.loads(analysis_path.read_text())
-        range_set = RangeSet(
-            centroid=Range(**analysis["statistics"]["centroid"]),
-            f0=Range(**analysis["statistics"]["f0"]),
-            flatness=Range(**analysis["statistics"]["flatness"]),
-            rms=Range(**analysis["statistics"]["rms"]),
-            rolloff=Range(**analysis["statistics"]["rolloff"]),
-        )
-        entries = []
-        points = []
-        for partition in analysis["partitions"]:
-            entries.append(
-                Entry(
-                    path=Path(partition["path"]),
-                    start_frame=partition["start_frame"],
-                    frame_count=partition["frame_count"],
-                )
+        logger.info(f"Loading database from {analysis_path} ...")
+        with timer() as t:
+            analysis = json.loads(analysis_path.read_text())
+            range_set = RangeSet(
+                centroid=Range(**analysis["statistics"]["centroid"]),
+                f0=Range(**analysis["statistics"]["f0"]),
+                flatness=Range(**analysis["statistics"]["flatness"]),
+                rms=Range(**analysis["statistics"]["rms"]),
+                rolloff=Range(**analysis["statistics"]["rolloff"]),
             )
-            points.append(
-                range_set.transform(
-                    centroid=partition["centroid"],
-                    f0=partition["f0"],
-                    flatness=partition["flatness"],
-                    is_voiced=partition["is_voiced"],
-                    rms=partition["rms"],
-                    rolloff=partition["rolloff"],
+            entries = []
+            points = []
+            for partition in analysis["partitions"]:
+                entries.append(
+                    Entry(
+                        path=Path(partition["path"]),
+                        start_frame=partition["start_frame"],
+                        frame_count=partition["frame_count"],
+                    )
                 )
+                points.append(
+                    range_set.transform(
+                        centroid=partition["centroid"],
+                        f0=partition["f0"],
+                        flatness=partition["flatness"],
+                        is_voiced=partition["is_voiced"],
+                        rms=partition["rms"],
+                        rolloff=partition["rolloff"],
+                    )
+                )
+            database = cls(
+                kdtree=KDTree(numpy.asarray(points, dtype=numpy.float32)),
+                entries=entries,
+                range_set=range_set,
+                root_path=analysis_path.parent,
             )
-        database = cls(
-            kdtree=KDTree(numpy.asarray(points, dtype=numpy.float32)),
-            entries=entries,
-            range_set=range_set,
-            root_path=analysis_path.parent,
-        )
+            logger.info(f"... Loaded {analysis_path} in {t():.4f} seconds")
         return database
 
     def query(
