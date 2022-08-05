@@ -29,5 +29,3 @@ def test_run(caplog, tmp_path):
     input_path = Path(__file__).parent
     output_path = tmp_path / "analysis.json"
     archon.pipeline.run(input_path, output_path)
-    print(output_path.read_text())
-    raise Exception
