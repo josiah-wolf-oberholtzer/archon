@@ -1,0 +1,2 @@
+[tool.pytest.ini_options]
+addopts = "-vv --durations=10 --cov=archon --cov-branch"
