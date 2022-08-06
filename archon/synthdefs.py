@@ -4,6 +4,7 @@ from supriya.ugens import (  # RMS,
     Amplitude,
     Impulse,
     In,
+    LPF,
     LocalBuf,
     Pitch,
     SendReply,
@@ -18,7 +19,7 @@ def analysis(in_=0, rate=10):
     source = In.ar(bus=in_)
     trigger = Impulse.kr(frequency=1 / rate)
     peak = Amplitude.ar(source=source)
-    # rms = RMS.ar(source=source)
+    rms = LPF.ar(source=source * source, frequency=10.0).square_root()
     frequency, is_voiced = Pitch.kr(source=source)
     chain = FFT.new(buffer_id=LocalBuf(4096), source=source)
     centroid = SpecCentroid.kr(pv_chain=chain)
@@ -26,7 +27,7 @@ def analysis(in_=0, rate=10):
     rolloff = SpecPcile.kr(pv_chain=chain)
     SendReply.kr(
         command_name="/analysis",
-        source=[peak, frequency, is_voiced, centroid, flatness, rolloff],
+        source=[peak, rms, frequency, is_voiced, centroid, flatness, rolloff],
         trigger=trigger,
     )
 

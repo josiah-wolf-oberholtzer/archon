@@ -16,6 +16,14 @@ def test_analysis():
                     source: In.ar[0]
                     attack_time: 0.01
                     release_time: 0.01
+            -   BinaryOpUGen(MULTIPLICATION).ar:
+                    left: In.ar[0]
+                    right: In.ar[0]
+            -   LPF.ar:
+                    source: BinaryOpUGen(MULTIPLICATION).ar[0]
+                    frequency: 10.0
+            -   UnaryOpUGen(SQUARE_ROOT).ar:
+                    source: LPF.ar[0]
             -   Pitch.kr:
                     source: In.ar[0]
                     initial_frequency: 440.0
@@ -68,10 +76,11 @@ def test_analysis():
                     char[7]: 105.0
                     char[8]: 115.0
                     source[0]: Amplitude.ar[0]
-                    source[1]: Pitch.kr[0]
-                    source[2]: Pitch.kr[1]
-                    source[3]: SpecCentroid.kr[0]
-                    source[4]: SpecFlatness.kr[0]
-                    source[5]: SpecPcile.kr[0]
+                    source[1]: UnaryOpUGen(SQUARE_ROOT).ar[0]
+                    source[2]: Pitch.kr[0]
+                    source[3]: Pitch.kr[1]
+                    source[4]: SpecCentroid.kr[0]
+                    source[5]: SpecFlatness.kr[0]
+                    source[6]: SpecPcile.kr[0]
         """
     )
