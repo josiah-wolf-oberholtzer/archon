@@ -325,7 +325,7 @@ sphinxcontrib-serializinghtml==1.1.5
     # via sphinx
 stack-data==0.3.0
     # via ipython
-supriya==22.8b0
+supriya==22.8b1
     # via -r requirements.in
 terminado==0.15.0
     # via notebook
