@@ -28,7 +28,7 @@ class QuitCommand(Command):
 class Harness:
     def __init__(self, analysis_path: Path, loop):
         self.clock = supriya.AsyncClock()
-        self.command_queue = asyncio.Queue()
+        self.command_queue: asyncio.Queue[Command] = asyncio.Queue()
         self.database = Database.new(analysis_path)
         self.exit_future = loop.create_future()
         self.server = supriya.AsyncServer()
