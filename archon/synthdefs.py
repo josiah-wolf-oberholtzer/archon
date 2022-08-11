@@ -1,10 +1,10 @@
 from supriya.synthdefs import synthdef
 from supriya.ugens import (  # RMS,
     FFT,
+    LPF,
     Amplitude,
     Impulse,
     In,
-    LPF,
     LocalBuf,
     Pitch,
     SendReply,
@@ -15,9 +15,9 @@ from supriya.ugens import (  # RMS,
 
 
 @synthdef()
-def analysis(in_=0, rate=10):
+def analysis(in_=0, tps=10):
     source = In.ar(bus=in_)
-    trigger = Impulse.kr(frequency=1 / rate)
+    trigger = Impulse.kr(frequency=tps)
     peak = Amplitude.ar(source=source)
     rms = LPF.ar(source=source * source, frequency=10.0).square_root()
     frequency, is_voiced = Pitch.kr(source=source)
