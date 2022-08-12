@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 @dataclasses.dataclass
 class Entry:
-    path: Path
-    start_frame: int
+    file_path: Path
+    starting_frame: int
     frame_count: int
 
 
@@ -71,8 +71,8 @@ class Database:
             for partition in analysis["partitions"]:
                 entries.append(
                     Entry(
-                        path=Path(partition["path"]),
-                        start_frame=partition["start_frame"],
+                        file_path=Path(partition["path"]),
+                        starting_frame=partition["start_frame"],
                         frame_count=partition["frame_count"],
                     )
                 )

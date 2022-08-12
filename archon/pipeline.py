@@ -10,6 +10,7 @@ from typing import Dict, List
 import librosa
 import numpy
 
+from . import config
 from .utils import cd, timer
 
 logger = logging.getLogger(__name__)
@@ -66,14 +67,16 @@ def analyze(
         S, _ = librosa.magphase(stft)
         centroid = librosa.feature.spectral_centroid(S=S, sr=sr)
         flatness = librosa.feature.spectral_flatness(S=S)
-        rms = librosa.feature.rms(S=S, frame_length=adjusted_frame_length)
+        rms = librosa.power_to_db(
+            librosa.feature.rms(S=S, frame_length=adjusted_frame_length)
+        )
         rolloff = librosa.feature.spectral_rolloff(S=S, sr=sr)
         logger.info(f"... Analyzed {path} STFT in {t():.4f} seconds")
     with timer() as t:
         f0, is_voiced, _ = librosa.pyin(
             y=y,
-            fmin=20,
-            fmax=5000,
+            fmin=config.PITCH_DETECTION_MIN_FREQUENCY,
+            fmax=config.PITCH_DETECTION_MAX_FREQUENCY,
             sr=sr,
             frame_length=adjusted_frame_length,
             hop_length=adjusted_hop_length,
@@ -172,7 +175,7 @@ def run(input_path: Path, output_path: Path):
                     statistics[key][2] += sum_
                     statistics[key][3] += feature.shape[0]
             for x in partition(analysis):
-                if x.rms < 0.01:  # Ignore silence
+                if x.rms < config.SILENCE_THRESHOLD_DB:  # Ignore silence
                     continue
                 partitions[x.digest] = x  # Use the hash to ignore duplicates
         data = {

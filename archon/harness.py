@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import signal
+from collections import deque
 from pathlib import Path
 from typing import List
 
@@ -36,6 +37,7 @@ class Harness:
         self.osc_callbacks: List[supriya.osc.OscCallback] = []
         self.server = supriya.AsyncServer()
         self.provider = supriya.Provider.from_context(self.server)
+        self.buffers = deque()
 
     async def boot(self):
         logger.info("Booting ...")
@@ -52,23 +54,47 @@ class Harness:
                 in_=self.server.options.output_bus_channel_count, synthdef=analysis
             )
 
-    def handle_osc_message(self, osc_message):
+    async def handle_osc_message(self, osc_message):
         if osc_message.address == "/analysis":
             (
                 _,
                 _,
                 peak,
                 rms,
-                frequency,
+                f0,
                 is_voiced,
+                is_onset,
                 centroid,
                 flatness,
                 rolloff,
             ) = osc_message.contents
             logger.info(
-                f"P{peak:.06f} R{rms:.06f} V{int(is_voiced)} F{frequency:.03f} "
-                f"C{centroid:.01f} F{flatness:.03f} R{rolloff:.01f}"
+                f"P{peak:8.06f} R{rms:10.06f} V{int(is_voiced)} F{f0:8.03f} "
+                f"A{int(is_onset)} C{centroid:.01f} F{flatness:.03f} R{rolloff:.01f}"
             )
+            k = 25
+            async with self.provider.at():
+                for entry, _ in self.database.query(
+                    centroid=centroid,
+                    f0=f0,
+                    flatness=flatness,
+                    is_voiced=is_voiced,
+                    rms=rms,
+                    rolloff=rolloff,
+                    k=k,
+                ):
+                    logger.info(repr(entry))
+                    buffer_ = self.provider.add_buffer(
+                        channel_count=1,
+                        file_path=self.database.root_path / entry.file_path,
+                        frame_count=entry.frame_count,
+                        starting_frame=entry.starting_frame,
+                    )
+                    self.buffers.append(buffer_)
+                if len(self.buffers) > 900:
+                    for _ in range(k):
+                        self.buffers.popleft().free()
+            logger.info(repr(self.server.status))
         else:
             logger.info(repr(osc_message))
 

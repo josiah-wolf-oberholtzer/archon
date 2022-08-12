@@ -1,4 +1,7 @@
+import cProfile
+import io
 import os
+import pstats
 from contextlib import contextmanager
 from time import perf_counter
 from typing import Callable, Generator
@@ -12,6 +15,19 @@ def cd(path: os.PathLike):
         yield
     finally:
         os.chdir(cwd)
+
+
+@contextmanager
+def profiler():
+    profiler = cProfile.Profile()
+    profiler.enable()
+    yield
+    profiler.disable()
+    stream = io.StringIO()
+    profiler_stats = pstats.Stats(profiler, stream=stream)
+    profiler_stats = profiler_stats.sort_stats("cumulative")
+    profiler_stats.print_stats()
+    print(stream.getvalue())
 
 
 @contextmanager
