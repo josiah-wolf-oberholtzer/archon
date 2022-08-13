@@ -11,7 +11,7 @@ import librosa
 import numpy
 
 from . import config
-from .utils import cd, timer
+from .utils import timer
 
 logger = logging.getLogger(__name__)
 
@@ -48,51 +48,113 @@ class Partition:
 
 
 def analyze(
-    path: Path, frame_length: int = 4096, hop_length: int = 512, window_length=2048
+    path: Path,
+    root_path: Path,
+    path_index: int = 1,
+    path_count: int = 1,
+    frame_length: int = 4096,
+    hop_length: int = 512,
+    window_length=2048,
 ) -> Analysis:
-    logger.info(f"Analyzing {path} ...")
-    with timer() as t:
-        y, sr = librosa.load(path, sr=None, mono=True)
-        logger.info(f"... Loaded {path} in {t():.4f} seconds")
+    relative_path = path.relative_to(root_path)
+
+    logger.info(f"[{path_index}/{path_count}] Analyzing {relative_path} ...")
+    sr = librosa.get_samplerate(path)
+
     adjusted_frame_length = frame_length * (sr // 44100)
     adjusted_hop_length = hop_length * (sr // 44100)
     adjusted_window_length = window_length * (sr // 44100)
+
+    analyses: Dict[str, List[numpy.ndarray]] = {
+        "centroid": [],
+        "f0": [],
+        "flatness": [],
+        "is_voiced": [],
+        "rms": [],
+        "rolloff": [],
+    }
+
     with timer() as t:
-        stft = librosa.stft(
-            y=y,
-            n_fft=adjusted_frame_length,
-            hop_length=adjusted_hop_length,
-            win_length=adjusted_window_length,
+
+        for i, y in enumerate(
+            librosa.stream(
+                path,
+                mono=True,
+                frame_length=adjusted_frame_length,
+                hop_length=adjusted_hop_length,
+                block_length=1024,
+            ),
+            1,
+        ):
+
+            with timer() as tstft:
+                stft = librosa.stft(
+                    y=y,
+                    n_fft=adjusted_frame_length,
+                    hop_length=adjusted_hop_length,
+                    win_length=adjusted_window_length,
+                )
+                S, _ = librosa.magphase(stft)
+                analyses["centroid"].append(
+                    numpy.squeeze(librosa.feature.spectral_centroid(S=S, sr=sr))
+                )
+                analyses["flatness"].append(
+                    numpy.squeeze(librosa.feature.spectral_flatness(S=S))
+                )
+                analyses["rms"].append(
+                    numpy.squeeze(
+                        librosa.power_to_db(
+                            librosa.feature.rms(S=S, frame_length=adjusted_frame_length)
+                        )
+                    )
+                )
+                analyses["rolloff"].append(
+                    numpy.squeeze(librosa.feature.spectral_rolloff(S=S, sr=sr))
+                )
+                logger.info(
+                    f"[{path_index}/{path_count}] ... "
+                    f"Analyzed {relative_path} block {i} STFT in {tstft():.3f} seconds"
+                )
+
+            with timer() as tpyin:
+                f0, is_voiced, _ = librosa.pyin(
+                    y=y,
+                    fmin=config.PITCH_DETECTION_MIN_FREQUENCY,
+                    fmax=config.PITCH_DETECTION_MAX_FREQUENCY,
+                    sr=sr,
+                    frame_length=adjusted_frame_length,
+                    hop_length=adjusted_hop_length,
+                )
+                analyses["f0"].append(numpy.squeeze(f0))
+                analyses["is_voiced"].append(numpy.squeeze(is_voiced))
+                logger.info(
+                    f"[{path_index}/{path_count}] ... "
+                    f"Analyzed {relative_path} block {i} PYIN in {tpyin():.3f} seconds"
+                )
+
+        logger.info(
+            f"[{path_index}/{path_count}] ... "
+            f"Analyzed {relative_path} in {t():.3f} total seconds"
         )
-        S, _ = librosa.magphase(stft)
-        centroid = librosa.feature.spectral_centroid(S=S, sr=sr)
-        flatness = librosa.feature.spectral_flatness(S=S)
-        rms = librosa.power_to_db(
-            librosa.feature.rms(S=S, frame_length=adjusted_frame_length)
-        )
-        rolloff = librosa.feature.spectral_rolloff(S=S, sr=sr)
-        logger.info(f"... Analyzed {path} STFT in {t():.4f} seconds")
-    with timer() as t:
-        f0, is_voiced, _ = librosa.pyin(
-            y=y,
-            fmin=config.PITCH_DETECTION_MIN_FREQUENCY,
-            fmax=config.PITCH_DETECTION_MAX_FREQUENCY,
-            sr=sr,
-            frame_length=adjusted_frame_length,
-            hop_length=adjusted_hop_length,
-        )
-        logger.info(f"... Analyzed {path} PYIN in {t():.4f} seconds")
+
+    centroid = numpy.concatenate(analyses["centroid"])
+    f0 = numpy.concatenate(analyses["f0"])
+    flatness = numpy.concatenate(analyses["flatness"])
+    is_voiced = numpy.concatenate(analyses["is_voiced"])
+    rms = numpy.concatenate(analyses["rms"])
+    rolloff = numpy.concatenate(analyses["rolloff"])
+
     analysis = Analysis(
-        centroid=numpy.squeeze(centroid),
-        f0=numpy.squeeze(f0),
-        flatness=numpy.squeeze(flatness),
+        centroid=centroid,
+        f0=f0,
+        flatness=flatness,
         frame_count=f0.shape[0],
         frame_length=adjusted_frame_length,
         hop_length=adjusted_hop_length,
-        is_voiced=numpy.squeeze(is_voiced),
-        path=path,
-        rms=numpy.squeeze(rms),
-        rolloff=numpy.squeeze(rolloff),
+        is_voiced=is_voiced,
+        path=relative_path,
+        rms=rms,
+        rolloff=rolloff,
         sample_count=y.shape[0],
         sample_rate=sr,
         window_length=adjusted_window_length,
@@ -101,9 +163,13 @@ def analyze(
 
 
 def partition(
-    analysis: Analysis, partition_size_in_ms=1000, partition_hop_in_ms=500
+    analysis: Analysis,
+    path_index: int = 1,
+    path_count: int = 1,
+    partition_size_in_ms=1000,
+    partition_hop_in_ms=500,
 ) -> List[Partition]:
-    logger.info(f"Partitioning {analysis.path} ...")
+    logger.info(f"[{path_index}/{path_count}] ... " f"Partitioning {analysis.path} ...")
     with timer() as t:
         hop_length_in_ms = float(analysis.hop_length) / analysis.sample_rate * 1000
         indices_per_partition = math.ceil(partition_size_in_ms / hop_length_in_ms)
@@ -144,7 +210,10 @@ def partition(
                 rolloff=float(numpy.median(rolloff)),
             )
             partitions.append(partition)
-        logger.info(f"... Partitioned {analysis.path} in {t():.4f} seconds")
+        logger.info(
+            f"[{path_index}/{path_count}] ... "
+            f"Partitioned {analysis.path} in {t():.4f} seconds"
+        )
     return partitions
 
 
@@ -155,9 +224,12 @@ def run(input_path: Path, output_path: Path):
     with timer() as t:
         statistics: Dict[str, List[float]] = {}
         partitions = {}
-        for audio_path in input_path.glob("**/*.wav"):
-            with cd(input_path):
-                analysis = analyze(audio_path.relative_to(input_path))
+        all_paths = list(input_path.glob("**/*.wav"))
+        path_count = len(all_paths)
+        for path_index, audio_path in enumerate(all_paths):
+            analysis = analyze(
+                audio_path, input_path, path_index=path_index, path_count=path_count
+            )
             for key in ("centroid", "f0", "flatness", "rms", "rolloff"):
                 feature = getattr(analysis, key)
                 if key == "f0":
@@ -174,7 +246,7 @@ def run(input_path: Path, output_path: Path):
                         statistics[key][1] = maximum
                     statistics[key][2] += sum_
                     statistics[key][3] += feature.shape[0]
-            for x in partition(analysis):
+            for x in partition(analysis, path_index=path_index, path_count=path_count):
                 if x.rms < config.SILENCE_THRESHOLD_DB:  # Ignore silence
                     continue
                 partitions[x.digest] = x  # Use the hash to ignore duplicates

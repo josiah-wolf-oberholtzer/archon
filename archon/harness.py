@@ -3,7 +3,7 @@ import logging
 import signal
 from collections import deque
 from pathlib import Path
-from typing import List
+from typing import Deque, List
 
 import supriya
 
@@ -37,7 +37,7 @@ class Harness:
         self.osc_callbacks: List[supriya.osc.OscCallback] = []
         self.server = supriya.AsyncServer()
         self.provider = supriya.Provider.from_context(self.server)
-        self.buffers = deque()
+        self.buffers: Deque[supriya.providers.BufferProxy] = deque()
 
     async def boot(self):
         logger.info("Booting ...")
