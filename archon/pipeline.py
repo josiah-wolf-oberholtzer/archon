@@ -65,6 +65,19 @@ def analyze(
     adjusted_hop_length = hop_length * (sr // 44100)
     adjusted_window_length = window_length * (sr // 44100)
 
+    block_count = len(
+        [
+            None
+            for _ in librosa.stream(
+                path,
+                mono=True,
+                frame_length=adjusted_frame_length,
+                hop_length=adjusted_hop_length,
+                block_length=1024,
+            )
+        ]
+    )
+
     analyses: Dict[str, List[numpy.ndarray]] = {
         "centroid": [],
         "f0": [],
@@ -76,7 +89,7 @@ def analyze(
 
     with timer() as t:
 
-        for i, y in enumerate(
+        for block_index, y in enumerate(
             librosa.stream(
                 path,
                 mono=True,
@@ -112,8 +125,8 @@ def analyze(
                     numpy.squeeze(librosa.feature.spectral_rolloff(S=S, sr=sr))
                 )
                 logger.info(
-                    f"[{path_index}/{path_count}] ... "
-                    f"Analyzed {relative_path} block {i} STFT in {tstft():.3f} seconds"
+                    f"[{path_index}/{path_count}] [{block_index}/{block_count}] "
+                    f"Analyzed {relative_path} block STFT in {tstft():.3f} seconds"
                 )
 
             with timer() as tpyin:
@@ -128,13 +141,13 @@ def analyze(
                 analyses["f0"].append(numpy.squeeze(f0))
                 analyses["is_voiced"].append(numpy.squeeze(is_voiced))
                 logger.info(
-                    f"[{path_index}/{path_count}] ... "
-                    f"Analyzed {relative_path} block {i} PYIN in {tpyin():.3f} seconds"
+                    f"[{path_index}/{path_count}] [{block_index}/{block_count}] "
+                    f"Analyzed {relative_path} PYIN in {tpyin():.3f} seconds"
                 )
 
         logger.info(
             f"[{path_index}/{path_count}] ... "
-            f"Analyzed {relative_path} in {t():.3f} total seconds"
+            f"Finished analyzing {relative_path} in {t():.3f} total seconds"
         )
 
     centroid = numpy.concatenate(analyses["centroid"])
@@ -226,7 +239,7 @@ def run(input_path: Path, output_path: Path):
         partitions = {}
         all_paths = list(input_path.glob("**/*.wav"))
         path_count = len(all_paths)
-        for path_index, audio_path in enumerate(all_paths):
+        for path_index, audio_path in enumerate(all_paths, 1):
             analysis = analyze(
                 audio_path, input_path, path_index=path_index, path_count=path_count
             )
