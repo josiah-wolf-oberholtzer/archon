@@ -9,6 +9,7 @@ from typing import Dict, List
 
 import librosa
 import numpy
+from joblib import Parallel, delayed
 
 from . import config
 from .utils import timer
@@ -52,10 +53,15 @@ def analyze(
     root_path: Path,
     path_index: int = 1,
     path_count: int = 1,
+    setup_logging: bool = False,
     frame_length: int = 4096,
     hop_length: int = 512,
     window_length=2048,
 ) -> Analysis:
+    if setup_logging:
+        logging.basicConfig()
+        logging.getLogger("archon").setLevel(logging.INFO)
+
     relative_path = path.relative_to(root_path)
 
     logger.info(f"[{path_index}/{path_count}] Analyzing {relative_path} ...")
@@ -177,12 +183,9 @@ def analyze(
 
 def partition(
     analysis: Analysis,
-    path_index: int = 1,
-    path_count: int = 1,
     partition_size_in_ms=1000,
     partition_hop_in_ms=500,
 ) -> List[Partition]:
-    logger.info(f"[{path_index}/{path_count}] ... " f"Partitioning {analysis.path} ...")
     with timer() as t:
         hop_length_in_ms = float(analysis.hop_length) / analysis.sample_rate * 1000
         indices_per_partition = math.ceil(partition_size_in_ms / hop_length_in_ms)
@@ -223,10 +226,7 @@ def partition(
                 rolloff=float(numpy.median(rolloff)),
             )
             partitions.append(partition)
-        logger.info(
-            f"[{path_index}/{path_count}] ... "
-            f"Partitioned {analysis.path} in {t():.4f} seconds"
-        )
+        logger.info(f"Partitioned {analysis.path} in {t():.4f} seconds")
     return partitions
 
 
@@ -235,14 +235,18 @@ def run(input_path: Path, output_path: Path):
         raise ValueError(input_path)
     logger.info(f"Running pipeline on {input_path} ...")
     with timer() as t:
-        statistics: Dict[str, List[float]] = {}
-        partitions = {}
         all_paths = list(input_path.glob("**/*.wav"))
         path_count = len(all_paths)
-        for path_index, audio_path in enumerate(all_paths, 1):
-            analysis = analyze(
-                audio_path, input_path, path_index=path_index, path_count=path_count
-            )
+
+        analyses = Parallel(n_jobs=4)(
+            delayed(analyze)(audio_path, input_path, path_index=path_index, path_count=path_count, setup_logging=True)
+            for path_index, audio_path in enumerate(all_paths, 1)
+        )
+
+        statistics: Dict[str, List[float]] = {}
+        partitions = {}
+        for analysis in analyses:
+
             for key in ("centroid", "f0", "flatness", "rms", "rolloff"):
                 feature = getattr(analysis, key)
                 if key == "f0":
@@ -259,10 +263,12 @@ def run(input_path: Path, output_path: Path):
                         statistics[key][1] = maximum
                     statistics[key][2] += sum_
                     statistics[key][3] += feature.shape[0]
-            for x in partition(analysis, path_index=path_index, path_count=path_count):
+
+            for x in partition(analysis):
                 if x.rms < config.SILENCE_THRESHOLD_DB:  # Ignore silence
                     continue
                 partitions[x.digest] = x  # Use the hash to ignore duplicates
+
         data = {
             "partitions": sorted(
                 (vars(x) for x in partitions.values()),
@@ -278,7 +284,7 @@ def run(input_path: Path, output_path: Path):
             },
         }
         output_path.write_text(json.dumps(data, sort_keys=True, indent=2))
-        logger.info(f"... Pipeline finished in {t():.4f} seconds")
+        logger.info(f"Pipeline finished in {t():.4f} seconds")
 
 
 def validate(analysis_path: Path):
