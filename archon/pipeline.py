@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import math
+import os
 import sys
 from pathlib import Path
 from typing import Dict, List
@@ -61,16 +62,12 @@ def analyze(
     if setup_logging:
         logging.basicConfig()
         logging.getLogger("archon").setLevel(logging.INFO)
-
     relative_path = path.relative_to(root_path)
-
-    logger.info(f"[{path_index}/{path_count}] Analyzing {relative_path} ...")
+    logger.info(f"[{path_index: >3}/{path_count: >3}] Analyzing {relative_path} ...")
     sr = librosa.get_samplerate(path)
-
     adjusted_frame_length = frame_length * (sr // 44100)
     adjusted_hop_length = hop_length * (sr // 44100)
     adjusted_window_length = window_length * (sr // 44100)
-
     block_count = len(
         [
             None
@@ -83,7 +80,6 @@ def analyze(
             )
         ]
     )
-
     analyses: Dict[str, List[numpy.ndarray]] = {
         "centroid": [],
         "f0": [],
@@ -92,9 +88,7 @@ def analyze(
         "rms": [],
         "rolloff": [],
     }
-
     with timer() as t:
-
         for block_index, y in enumerate(
             librosa.stream(
                 path,
@@ -105,8 +99,7 @@ def analyze(
             ),
             1,
         ):
-
-            with timer() as tstft:
+            with timer() as tb:
                 stft = librosa.stft(
                     y=y,
                     n_fft=adjusted_frame_length,
@@ -130,12 +123,6 @@ def analyze(
                 analyses["rolloff"].append(
                     numpy.squeeze(librosa.feature.spectral_rolloff(S=S, sr=sr))
                 )
-                logger.info(
-                    f"[{path_index}/{path_count}] [{block_index}/{block_count}] "
-                    f"Analyzed {relative_path} block STFT in {tstft():.3f} seconds"
-                )
-
-            with timer() as tpyin:
                 f0, is_voiced, _ = librosa.pyin(
                     y=y,
                     fmin=config.PITCH_DETECTION_MIN_FREQUENCY,
@@ -147,22 +134,19 @@ def analyze(
                 analyses["f0"].append(numpy.squeeze(f0))
                 analyses["is_voiced"].append(numpy.squeeze(is_voiced))
                 logger.info(
-                    f"[{path_index}/{path_count}] [{block_index}/{block_count}] "
-                    f"Analyzed {relative_path} PYIN in {tpyin():.3f} seconds"
+                    f"[{path_index: >3}/{path_count: >3}] [{block_index: >3}/{block_count: >3}] "
+                    f"Analyzed {relative_path} in {tb():.3f} seconds"
                 )
-
         logger.info(
-            f"[{path_index}/{path_count}] ... "
+            f"[{path_index: >3}/{path_count: >3}] ... "
             f"Finished analyzing {relative_path} in {t():.3f} total seconds"
         )
-
     centroid = numpy.concatenate(analyses["centroid"])
     f0 = numpy.concatenate(analyses["f0"])
     flatness = numpy.concatenate(analyses["flatness"])
     is_voiced = numpy.concatenate(analyses["is_voiced"])
     rms = numpy.concatenate(analyses["rms"])
     rolloff = numpy.concatenate(analyses["rolloff"])
-
     analysis = Analysis(
         centroid=centroid,
         f0=f0,
@@ -182,9 +166,7 @@ def analyze(
 
 
 def partition(
-    analysis: Analysis,
-    partition_size_in_ms=1000,
-    partition_hop_in_ms=500,
+    analysis: Analysis, partition_size_in_ms=1000, partition_hop_in_ms=500
 ) -> List[Partition]:
     with timer() as t:
         hop_length_in_ms = float(analysis.hop_length) / analysis.sample_rate * 1000
@@ -238,8 +220,14 @@ def run(input_path: Path, output_path: Path):
         all_paths = list(input_path.glob("**/*.wav"))
         path_count = len(all_paths)
 
-        analyses = Parallel(n_jobs=4)(
-            delayed(analyze)(audio_path, input_path, path_index=path_index, path_count=path_count, setup_logging=True)
+        analyses = Parallel(n_jobs=os.cpu_count() // 2)(
+            delayed(analyze)(
+                audio_path,
+                input_path,
+                path_index=path_index,
+                path_count=path_count,
+                setup_logging=True,
+            )
             for path_index, audio_path in enumerate(all_paths, 1)
         )
 
