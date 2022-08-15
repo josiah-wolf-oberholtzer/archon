@@ -7,7 +7,7 @@ import os
 import sys
 import traceback
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import librosa
 import numpy
@@ -69,7 +69,7 @@ def analyze(
     frame_length: int = 4096,
     hop_length: int = 512,
     window_length=2048,
-) -> Analysis:
+) -> Optional[Analysis]:
     """
     Analyze a single file.
     """
@@ -250,9 +250,10 @@ def run(input_path: Path, output_path: Path):
             librosa.get_duration(filename=path) for path in all_paths
         )
 
+        job_count = (os.cpu_count() or 4) // 2
         analyses = [
             x
-            for x in Parallel(n_jobs=os.cpu_count() // 2)(
+            for x in Parallel(n_jobs=job_count)(
                 delayed(analyze)(
                     audio_path,
                     input_path,
