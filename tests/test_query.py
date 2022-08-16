@@ -19,21 +19,42 @@ def test_Database():
         k=5,
     )
     assert pairs == [
-        (Entry(path=Path("audio-a.wav"), start_frame=0, frame_count=44544), 0.0),
         (
-            Entry(path=Path("audio-a.wav"), start_frame=45056, frame_count=44544),
-            0.05652,
+            Entry(
+                path=Path("audio-a-duplicate.wav"), starting_frame=0, frame_count=44544
+            ),
+            0.0,
         ),
         (
-            Entry(path=Path("audio-a.wav"), start_frame=135168, frame_count=44544),
-            0.061291,
+            Entry(
+                path=Path("audio-a-duplicate.wav"),
+                starting_frame=45056,
+                frame_count=44544,
+            ),
+            0.056845,
         ),
         (
-            Entry(path=Path("audio-a.wav"), start_frame=157696, frame_count=44544),
-            0.061476,
+            Entry(
+                path=Path("audio-a-duplicate.wav"),
+                starting_frame=135168,
+                frame_count=44544,
+            ),
+            0.061365,
         ),
         (
-            Entry(path=Path("audio-a.wav"), start_frame=180224, frame_count=44544),
-            0.087149,
+            Entry(
+                path=Path("audio-a-duplicate.wav"),
+                starting_frame=157696,
+                frame_count=44544,
+            ),
+            0.082172,
+        ),
+        (
+            Entry(
+                path=Path("audio-a-duplicate.wav"),
+                starting_frame=180224,
+                frame_count=44544,
+            ),
+            0.091955,
         ),
     ]

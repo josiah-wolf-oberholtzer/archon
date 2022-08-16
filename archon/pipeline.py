@@ -151,7 +151,8 @@ def analyze(
                     analyses["f0"].append(numpy.squeeze(f0))
                     analyses["is_voiced"].append(numpy.squeeze(is_voiced))
                     logger.info(
-                        f"[{path_index: >3}/{path_count: >3}] [{block_index: >3}/{block_count: >3}] "
+                        f"[{path_index: >3}/{path_count: >3}] "
+                        f"[{block_index: >3}/{block_count: >3}] "
                         f"Analyzed {relative_path} in {tb():.3f} seconds"
                     )
             logger.info(

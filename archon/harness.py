@@ -86,7 +86,7 @@ class Harness:
                     logger.info(repr(entry))
                     buffer_ = self.provider.add_buffer(
                         channel_count=1,
-                        file_path=self.database.root_path / entry.file_path,
+                        file_path=self.database.root_path / entry.path,
                         frame_count=entry.frame_count,
                         starting_frame=entry.starting_frame,
                     )

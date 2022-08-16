@@ -24,11 +24,13 @@ def test_analysis():
                     frequency: 10.0
             -   UnaryOpUGen(SQUARE_ROOT).ar:
                     source: LPF.ar[0]
+            -   UnaryOpUGen(AMPLITUDE_TO_DB).ar:
+                    source: UnaryOpUGen(SQUARE_ROOT).ar[0]
             -   Pitch.kr:
                     source: In.ar[0]
                     initial_frequency: 440.0
                     min_frequency: 60.0
-                    max_frequency: 4000.0
+                    max_frequency: 3000.0
                     exec_frequency: 100.0
                     max_bins_per_octave: 16.0
                     median: 1.0
@@ -36,11 +38,8 @@ def test_analysis():
                     peak_threshold: 0.5
                     down_sample_factor: 1.0
                     clarity: 0.0
-            -   BinaryOpUGen(FLOAT_DIVISION).kr:
-                    left: 1.0
-                    right: Control.kr[1:rate]
             -   Impulse.kr:
-                    frequency: BinaryOpUGen(FLOAT_DIVISION).kr[0]
+                    frequency: Control.kr[1:tps]
                     phase: 0.0
             -   MaxLocalBufs.ir:
                     maximum: 1.0
@@ -54,6 +53,16 @@ def test_analysis():
                     window_type: 0.0
                     active: 1.0
                     window_size: 0.0
+            -   Onsets.kr:
+                    pv_chain: FFT.kr[0]
+                    threshold: 0.01
+                    odftype: 5.0
+                    relaxtime: 1.0
+                    floor: 1.0e-06
+                    mingap: 10.0
+                    medianspan: 11.0
+                    whtype: 1.0
+                    rawodf: 0.0
             -   SpecCentroid.kr:
                     pv_chain: FFT.kr[0]
             -   SpecFlatness.kr:
@@ -76,11 +85,12 @@ def test_analysis():
                     char[7]: 105.0
                     char[8]: 115.0
                     source[0]: Amplitude.ar[0]
-                    source[1]: UnaryOpUGen(SQUARE_ROOT).ar[0]
+                    source[1]: UnaryOpUGen(AMPLITUDE_TO_DB).ar[0]
                     source[2]: Pitch.kr[0]
                     source[3]: Pitch.kr[1]
-                    source[4]: SpecCentroid.kr[0]
-                    source[5]: SpecFlatness.kr[0]
-                    source[6]: SpecPcile.kr[0]
+                    source[4]: Onsets.kr[0]
+                    source[5]: SpecCentroid.kr[0]
+                    source[6]: SpecFlatness.kr[0]
+                    source[7]: SpecPcile.kr[0]
         """
     )

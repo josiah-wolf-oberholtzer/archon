@@ -8,7 +8,8 @@ import archon.pipeline
 
 @pytest.mark.parametrize("filename", ["audio-a.wav", "audio-b.wav", "audio-c.wav"])
 def test_analyze(filename):
-    analysis = archon.pipeline.analyze(Path(__file__).parent / filename)
+    root_path = Path(__file__).parent
+    analysis = archon.pipeline.analyze(root_path / filename, root_path=root_path)
     shape = analysis.f0.shape
     assert shape[0] > 1
     assert analysis.centroid.shape == shape
@@ -20,7 +21,8 @@ def test_analyze(filename):
 
 @pytest.mark.parametrize("filename", ["audio-a.wav", "audio-b.wav", "audio-c.wav"])
 def test_partition(filename):
-    analysis = archon.pipeline.analyze(Path(__file__).parent / filename)
+    root_path = Path(__file__).parent
+    analysis = archon.pipeline.analyze(root_path / filename, root_path=root_path)
     archon.pipeline.partition(analysis)
 
 
