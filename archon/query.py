@@ -12,7 +12,7 @@ from .utils import timer
 logger = logging.getLogger(__name__)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(eq=True, frozen=True)
 class Entry:
     path: Path
     starting_frame: int
