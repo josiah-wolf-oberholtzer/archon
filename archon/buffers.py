@@ -2,10 +2,10 @@ from pathlib import Path
 from typing import Dict, List, Set, Union
 from uuid import UUID
 
-from supriya import Provider
 from supriya.clocks import ClockContext
 from supriya.osc import OscMessage
 from supriya.patterns import Event, NoteEvent, PatternPlayer, Priority, StopEvent
+from supriya.providers import BufferProxy, Provider
 
 from .query import Entry
 
@@ -14,12 +14,14 @@ class BufferManager:
     def __init__(self, provider: Provider, root_path: Path):
         self.provider = provider
         self.root_path = root_path
-        self.buffers_to_entities: Dict[int, Set[Union[UUID, int]]] = {}
-        self.buffers_to_entries: Dict[int, Entry] = {}
-        self.entities_to_buffers: Dict[Union[UUID, int], Set[int]] = {}
-        self.entries_to_buffers: Dict[Entry, int] = {}
+        self.buffers_to_entities: Dict[BufferProxy, Set[Union[UUID, int]]] = {}
+        self.buffers_to_entries: Dict[BufferProxy, Entry] = {}
+        self.entities_to_buffers: Dict[Union[UUID, int], Set[BufferProxy]] = {}
+        self.entries_to_buffers: Dict[Entry, BufferProxy] = {}
 
-    def increment(self, entry_or_buffer_id: Union[Entry, int], reference: UUID) -> int:
+    def increment(
+        self, entry_or_buffer_id: Union[Entry, BufferProxy], reference: Union[UUID, int]
+    ) -> BufferProxy:
         if isinstance(entry_or_buffer_id, Entry):
             entry = entry_or_buffer_id
             if entry not in self.entries_to_buffers:
@@ -29,8 +31,8 @@ class BufferManager:
                     starting_frame=entry.starting_frame,
                     frame_count=entry.frame_count,
                 )
-                self.buffers_to_entries[buffer_.identifier] = entry
-                self.entries_to_buffers[entry] = buffer_.identifier
+                self.buffers_to_entries[buffer_] = entry
+                self.entries_to_buffers[entry] = buffer_
             buffer_id = self.entries_to_buffers[entry]
         else:
             buffer_id = entry_or_buffer_id
@@ -38,10 +40,12 @@ class BufferManager:
         self.entities_to_buffers.setdefault(reference, set()).add(buffer_id)
         return buffer_id
 
-    def increment_multiple(self, entries: List[Entry], reference: UUID) -> List[int]:
+    def increment_multiple(
+        self, entries: List[Entry], reference: UUID
+    ) -> List[BufferProxy]:
         return [self.increment(entry, reference) for entry in entries]
 
-    def decrement(self, reference: UUID, free=True):
+    def decrement(self, reference: Union[UUID, int], free=True):
         for buffer_id in self.entities_to_buffers.pop(reference):
             references = self.buffers_to_entities[buffer_id]
             references.remove(reference)
@@ -66,7 +70,7 @@ class BufferManager:
         elif isinstance(event, NoteEvent) and priority == Priority.START:
             buffer_id = event.kwargs.get("buffer_id")
             if buffer_id is not None:
-                self.increment(buffer_id, player._proxies_by_uuid[event.id_].identifier)
+                self.increment(buffer_id, player._proxies_by_uuid[event.id_])
 
     def handle_node_end(self, message: OscMessage) -> None:
         """

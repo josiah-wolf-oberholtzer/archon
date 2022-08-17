@@ -17,6 +17,7 @@ class Entry:
     path: Path
     starting_frame: int
     frame_count: int
+    digest: str
 
 
 @dataclasses.dataclass
@@ -74,6 +75,7 @@ class Database:
                         path=Path(partition["path"]),
                         starting_frame=partition["start_frame"],
                         frame_count=partition["frame_count"],
+                        digest=partition["digest"],
                     )
                 )
                 points.append(
