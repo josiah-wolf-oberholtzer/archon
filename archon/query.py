@@ -7,6 +7,7 @@ from typing import List, Tuple
 import numpy
 from scipy.spatial import KDTree
 
+from .ephemera import AnalysisTarget
 from .utils import timer
 
 logger = logging.getLogger(__name__)
@@ -121,3 +122,6 @@ class Database:
             (self.entries[indices[i]], round(distances[i], 6))
             for i in range(len(distances))
         ]
+
+    def query_analysis_target(self, target: AnalysisTarget, k: int = 25) -> List[Entry]:
+        return []

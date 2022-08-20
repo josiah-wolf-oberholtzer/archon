@@ -72,7 +72,7 @@ class BufferManager:
             if buffer_id is not None:
                 self.increment(buffer_id, player._proxies_by_uuid[event.id_])
 
-    def handle_node_end(self, message: OscMessage) -> None:
+    def handle_n_end_message(self, message: OscMessage) -> None:
         """
         Decrement node ends.
         """

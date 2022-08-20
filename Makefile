@@ -1,3 +1,8 @@
+clean:
+	find . -name '*.__pycache__' | xargs rm -Rf
+	find . -name '*.egg-info' | xargs rm -Rf
+	find . -name '*.pyc' | xargs rm -Rf
+
 black-check: ## Check syntax via black
 	black --skip-magic-trailing-comma --target-version py310 --check --diff .
 

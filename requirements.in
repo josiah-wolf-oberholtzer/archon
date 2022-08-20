@@ -1,9 +1,6 @@
-jupyter
 librosa
-pandas
-python-osc
+prompt_toolkit
 supriya
-torch
 
 black[jupyter]
 flake8
