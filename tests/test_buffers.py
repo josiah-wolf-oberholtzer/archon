@@ -3,7 +3,6 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from supriya.providers import BufferProxy, Provider
-from uqbar.strings import normalize
 
 from archon.buffers import BufferManager
 from archon.query import Database

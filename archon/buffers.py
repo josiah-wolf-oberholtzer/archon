@@ -2,9 +2,6 @@ from pathlib import Path
 from typing import Dict, List, Set, Union
 from uuid import UUID
 
-from supriya.clocks import ClockContext
-from supriya.osc import OscMessage
-from supriya.patterns import Event, NoteEvent, PatternPlayer, Priority, StopEvent
 from supriya.providers import BufferProxy, Provider
 
 from .query import Entry
@@ -54,26 +51,3 @@ class BufferManager:
                 entry = self.buffers_to_entries.pop(buffer_id)
                 self.entries_to_buffers.pop(entry)
                 self.provider.free_buffer(buffer_id)
-
-    def handle_pattern_event(
-        self,
-        player: PatternPlayer,
-        context: ClockContext,
-        event: Event,
-        priority: Priority,
-    ) -> None:
-        """
-        Decrement pattern stops and increment note starts.
-        """
-        if isinstance(event, StopEvent):
-            self.decrement(player.uuid)
-        elif isinstance(event, NoteEvent) and priority == Priority.START:
-            buffer_id = event.kwargs.get("buffer_id")
-            if buffer_id is not None:
-                self.increment(buffer_id, player._proxies_by_uuid[event.id_])
-
-    def handle_n_end_message(self, message: OscMessage) -> None:
-        """
-        Decrement node ends.
-        """
-        self.decrement(message.contents[0])
