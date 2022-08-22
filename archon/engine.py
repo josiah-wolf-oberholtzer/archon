@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 from pathlib import Path
 from typing import Dict, List
 from uuid import UUID, uuid4
@@ -16,6 +17,7 @@ from .ephemera import AnalysisTarget
 from .patterns import PatternFactory
 from .query import Database
 from .synthdefs import analysis
+from .utils import scale
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +49,11 @@ class Engine:
         """
         Boot scsynth, setup OSC handlers, groups and synths.
         """
+        logger.info("Booting server ...")
         if self.server.is_running:
+            logger.warning("Server already booted!")
             return
-        logger.info("Booting scsynth ...")
+        await self.clock.start()
         await self.server.boot()
         for address, handler in {
             "/analysis": self.on_analysis_osc_message,
@@ -64,50 +68,65 @@ class Engine:
             self.provider.add_synth(
                 in_=self.server.options.output_bus_channel_count, synthdef=analysis
             )
+        logger.info("... server booted!")
 
     async def quit_server(self, graceful: bool = True) -> None:
         """
         Quit scsynth, teardown osc handlers.
         """
+        logger.info("Quitting server ...")
         if not self.server.is_running:
+            logger.warning("Server already quit!")
             return
         await self.stop(graceful=graceful)
-        logger.info("Quitting scsynth ...")
         for callback in self.osc_callbacks:
             self.provider.unregister_osc_callback(callback)
         await self.server.quit()
+        await self.clock.stop()
+        logger.info("... server quit!")
 
     async def start(self, graceful: bool = True) -> None:
         """
         Start the engine.
         """
+        logger.info("Starting engine ...")
         if self.is_running:
+            logger.warning("Engine already started!")
             return
         self.is_running = True
-        await self.clock.start()
         self.periodic_tasks.append(
             asyncio.get_running_loop().create_task(self.poll_analysis_engine())
         )
+        logger.info("... engine started!")
 
     async def stop(self, graceful: bool = True) -> None:
         """
         Stop the engine.
         """
+        logger.info("Stopping engine ...")
         if not self.is_running:
+            logger.warning("Engine already stopped!")
             return
         self.is_running = False
-        self.periodic_tasks.clear()  # Lose references to periodic task
-        if not graceful:
-            for pattern_player in self.pattern_players.values():
-                pattern_player.stop()
-        await asyncio.wait(list(self.pattern_futures.values()))
-        await self.clock.stop()
+        # Cancel any polling tasks
+        while self.periodic_tasks:
+            self.periodic_tasks.pop().cancel()
+        logger.info("Stopping engine gracefully ...")
+        for uuid, pattern_player in self.pattern_players.items():
+            logger.info(f"Stopping pattern {pattern_player.uuid}")
+            pattern_player.stop()
+        if self.pattern_futures:
+            logger.info(f"Waiting on pattern players: {self.pattern_futures}")
+            await asyncio.wait(list(self.pattern_futures.values()))
         self.pattern_futures.clear()
         self.pattern_players.clear()
+        logger.info("... engine stopped!")
 
     async def on_analysis_target(self, analysis_target: AnalysisTarget) -> None:
         # Query the database
         entries = self.database.query_analysis_target(analysis_target)
+        if not entries:
+            logger.warning("No entries found")
         # Generate a UUID
         uuid = uuid4()
         # Allocate buffers
@@ -123,8 +142,10 @@ class Engine:
             uuid=uuid,
         )
         self.pattern_futures[uuid] = asyncio.get_running_loop().create_future()
+        logger.info(f"Pattern started: {uuid}")
 
-    async def on_analysis_osc_message(self, osc_message, OscMessage):
+    async def on_analysis_osc_message(self, osc_message: OscMessage):
+        logger.info(f"/analysis received: {osc_message!r}")
         self.analysis_engine.intake(
             peak=osc_message.contents[2],
             rms=osc_message.contents[3],
@@ -137,8 +158,10 @@ class Engine:
         )
 
     async def on_n_end_osc_message(self, osc_message: OscMessage):
+        logger.info(f"/n_end received: {osc_message!r}")
         node_id = osc_message.contents[0]
-        self.buffer_manager.decrement(node_id)
+        async with self.provider.at():
+            self.buffer_manager.decrement(node_id)
 
     async def on_pattern_player_callback(
         self,
@@ -148,18 +171,25 @@ class Engine:
         priority: Priority,
     ):
         if isinstance(event, NoteEvent) and priority == Priority.START:
+            node_id = int(player._proxies_by_uuid[event.id_])
             buffer_id = event.kwargs.get("buffer_id")
+            logger.info(f"Playing note: {node_id} w/ {int(buffer_id)}")
             if buffer_id is not None:
-                self.buffer_manager.increment(
-                    buffer_id, player._proxies_by_uuid[event.id_]
-                )
+                self.buffer_manager.increment(buffer_id, node_id)
         elif isinstance(event, StopEvent):
-            self.buffer_manager.decrement(player.uuid)
+            logger.info(f"Pattern stopped: {player.uuid}")
+            async with self.provider.at():
+                self.buffer_manager.decrement(player.uuid)
             self.pattern_players.pop(player.uuid)
             self.pattern_futures.pop(player.uuid).set_result(True)
 
     async def poll_analysis_engine(self) -> None:
+        logger.info("Starting new analysis engine poller ...")
         while self.is_running:
+            logger.info(f"{self.server.status}")
+            logger.info("Polling analysis engine ...")
+            analysis_target, min_sleep, max_sleep = self.analysis_engine.emit()
             # check if polyphony has capacity
-            # check if analysis engine will emit
-            await asyncio.sleep(1)
+            await self.on_analysis_target(analysis_target)
+            await asyncio.sleep(scale(random.random(), 0, 1, min_sleep, max_sleep))
+        logger.info("... exiting analysis engine poller.")

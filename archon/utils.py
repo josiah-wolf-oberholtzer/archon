@@ -30,6 +30,10 @@ def profiler():
     print(stream.getvalue())
 
 
+def scale(x, in_min, in_max, out_min, out_max):
+    return (((x - in_min) / (in_max - in_min)) * (out_max - out_min)) + out_min
+
+
 @contextmanager
 def timer() -> Generator[Callable[[], float], None, None]:
     def get_time() -> float:

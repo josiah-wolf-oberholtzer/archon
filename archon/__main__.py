@@ -6,5 +6,6 @@ if __name__ == "__main__":
     logging.basicConfig()
     logging.getLogger("archon").setLevel(logging.INFO)
     logging.getLogger("supriya.osc").setLevel(logging.INFO)
+    # logging.getLogger("supriya.osc.out").setLevel(logging.DEBUG)
     logging.getLogger("supriya.server").setLevel(logging.DEBUG)
     main()

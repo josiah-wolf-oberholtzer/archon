@@ -118,10 +118,25 @@ class Database:
             rolloff=rolloff,
         )
         distances, indices = self.kdtree.query(point, k=k)
+        logger.info(f"Querying point: {point}")
+        logger.info(f"Distances: {[round(x, 3) for x in distances]}")
         return [
             (self.entries[indices[i]], round(distances[i], 6))
             for i in range(len(distances))
         ]
 
-    def query_analysis_target(self, target: AnalysisTarget, k: int = 25) -> List[Entry]:
-        return []
+    def query_analysis_target(
+        self, analysis_target: AnalysisTarget, k: int = 25
+    ) -> List[Entry]:
+        return [
+            entry
+            for entry, distance in self.query(
+                centroid=analysis_target.centroid,
+                f0=analysis_target.f0,
+                flatness=analysis_target.flatness,
+                is_voiced=analysis_target.is_voiced,
+                rms=analysis_target.rms,
+                rolloff=analysis_target.rolloff,
+                k=analysis_target.k,
+            )
+        ]

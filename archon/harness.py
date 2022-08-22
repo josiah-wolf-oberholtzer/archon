@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import logging
 import signal
 from pathlib import Path
@@ -24,40 +25,39 @@ class Harness:
     engine and a text UI.
     """
 
-    def __init__(self, analysis_path: Path):
+    def __init__(self, analysis_path: Path, loop):
         self.command_queue: asyncio.Queue[Command] = asyncio.Queue()
         self.engine = Engine(analysis_path)
-        self.exit_future = asyncio.get_running_loop().create_future()
+        self.exit_future = loop.create_future()
 
     async def exit(self):
         logger.info("Exiting ...")
         self.exit_future.set_result(True)
 
     async def run(self):
-        def signal_handler(*args):
-            async def bail():
-                await self.command_queue.put(StopEngineCommand())
-                await self.command_queue.put(QuitServerCommand())
-                await self.command_queue.put(ExitCommand())
-
-            logger.warning("Caught signal!")
-            loop.create_task(bail())
-
         logger.info("Running harness ...")
-        loop = asyncio.get_running_loop()
-        loop.add_signal_handler(signal.SIGINT, signal_handler)
-        loop.add_signal_handler(signal.SIGTSTP, signal_handler)
         await self.command_queue.put(BootServerCommand())
         await self.command_queue.put(StartEngineCommand())
         while not self.exit_future.done():
             command = await self.command_queue.get()
+            logger.info(f"Handling command: {command}")
             await command.do(self)
         logger.info("... harness done.")
 
+    def shutdown(self, signal_name, *args):
+        async def shutdown_async(sig):
+            logger.warning(f"Caught signal: {signal_name}")
+            await self.command_queue.put(ExitCommand())
+
+        asyncio.get_running_loop().create_task(shutdown_async(signal_name))
+
 
 def run(analysis_path: Path):
-    async def inner():
-        harness = Harness(analysis_path)
-        await harness.run()
-
-    asyncio.run(inner())
+    loop = asyncio.get_event_loop()
+    harness = Harness(analysis_path, loop)
+    for signal_name in ("SIGINT", "SIGTSTP", "SIGQUIT", "SIGTERM", "SIGHUP"):
+        loop.add_signal_handler(
+            getattr(signal, signal_name),
+            functools.partial(harness.shutdown, signal_name),
+        )
+    loop.run_until_complete(harness.run())
