@@ -146,15 +146,29 @@ class Engine:
 
     async def on_analysis_osc_message(self, osc_message: OscMessage):
         logger.info(f"/analysis received: {osc_message!r}")
+        (
+            _,
+            _,
+            peak,
+            rms,
+            f0,
+            is_voiced,
+            is_onset,
+            centroid,
+            flatness,
+            rolloff,
+            *mfccs,
+        ) = osc_message.contents
         self.analysis_engine.intake(
-            peak=osc_message.contents[2],
-            rms=osc_message.contents[3],
-            f0=osc_message.contents[4],
-            is_voiced=bool(osc_message.contents[5]),
-            is_onset=bool(osc_message.contents[6]),
-            centroid=osc_message.contents[7],
-            flatness=osc_message.contents[8],
-            rolloff=osc_message.contents[9],
+            peak=peak,
+            rms=rms,
+            f0=f0,
+            is_voiced=bool(is_voiced),
+            is_onset=bool(is_onset),
+            centroid=centroid,
+            flatness=flatness,
+            rolloff=rolloff,
+            mfccs=mfccs,
         )
 
     async def on_n_end_osc_message(self, osc_message: OscMessage):

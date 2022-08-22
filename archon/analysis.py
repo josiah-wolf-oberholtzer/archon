@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Tuple
 
 from .ephemera import AnalysisTarget, PatternFlavor
 
@@ -13,6 +13,7 @@ class AnalysisEngine:
         self.centroid = 0.0
         self.flatness = 0.0
         self.rolloff = 0.0
+        self.mfccs = []
 
     def intake(
         self,
@@ -25,6 +26,7 @@ class AnalysisEngine:
         centroid: float,
         flatness: float,
         rolloff: float,
+        mfccs: List[float],
     ):
         self.peak = peak
         self.rms = rms
@@ -34,6 +36,7 @@ class AnalysisEngine:
         self.centroid = centroid
         self.flatness = flatness
         self.rolloff = rolloff
+        self.mfccs = mfccs
 
     def emit(self) -> Tuple[AnalysisTarget, float, float]:
         analysis_target = AnalysisTarget(
@@ -46,6 +49,7 @@ class AnalysisEngine:
             centroid=self.centroid,
             flatness=self.flatness,
             rolloff=self.rolloff,
+            mfccs=self.mfccs,
             k=25,
         )
         min_sleep, max_sleep = 0.0, 1.0

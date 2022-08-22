@@ -1,5 +1,6 @@
 import dataclasses
 from enum import Enum
+from typing import List
 
 
 class PatternFlavor(Enum):
@@ -17,4 +18,5 @@ class AnalysisTarget:
     centroid: float
     flatness: float
     rolloff: float
+    mfccs: List[float]
     k: int

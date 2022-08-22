@@ -16,6 +16,8 @@ def test_analysis():
                     source: In.ar[0]
                     attack_time: 0.01
                     release_time: 0.01
+            -   UnaryOpUGen(AMPLITUDE_TO_DB).ar/0:
+                    source: Amplitude.ar[0]
             -   BinaryOpUGen(MULTIPLICATION).ar:
                     left: In.ar[0]
                     right: In.ar[0]
@@ -24,7 +26,7 @@ def test_analysis():
                     frequency: 10.0
             -   UnaryOpUGen(SQUARE_ROOT).ar:
                     source: LPF.ar[0]
-            -   UnaryOpUGen(AMPLITUDE_TO_DB).ar:
+            -   UnaryOpUGen(AMPLITUDE_TO_DB).ar/1:
                     source: UnaryOpUGen(SQUARE_ROOT).ar[0]
             -   Pitch.kr:
                     source: In.ar[0]
@@ -45,7 +47,7 @@ def test_analysis():
                     maximum: 1.0
             -   LocalBuf.ir:
                     channel_count: 1.0
-                    frame_count: 4096.0
+                    frame_count: 2048.0
             -   FFT.kr:
                     buffer_id: LocalBuf.ir[0]
                     source: In.ar[0]
@@ -53,6 +55,9 @@ def test_analysis():
                     window_type: 0.0
                     active: 1.0
                     window_size: 0.0
+            -   MFCC.kr:
+                    pv_chain: FFT.kr[0]
+                    coeff_count: 13.0
             -   Onsets.kr:
                     pv_chain: FFT.kr[0]
                     threshold: 0.01
@@ -71,6 +76,8 @@ def test_analysis():
                     pv_chain: FFT.kr[0]
                     fraction: 0.5
                     interpolate: 0.0
+            -   UnaryOpUGen(HZ_TO_MIDI).kr:
+                    source: Pitch.kr[0]
             -   SendReply.kr:
                     trigger: Impulse.kr[0]
                     reply_id: -1.0
@@ -84,13 +91,26 @@ def test_analysis():
                     char[6]: 115.0
                     char[7]: 105.0
                     char[8]: 115.0
-                    source[0]: Amplitude.ar[0]
-                    source[1]: UnaryOpUGen(AMPLITUDE_TO_DB).ar[0]
-                    source[2]: Pitch.kr[0]
+                    source[0]: UnaryOpUGen(AMPLITUDE_TO_DB).ar/0[0]
+                    source[1]: UnaryOpUGen(AMPLITUDE_TO_DB).ar/1[0]
+                    source[2]: UnaryOpUGen(HZ_TO_MIDI).kr[0]
                     source[3]: Pitch.kr[1]
                     source[4]: Onsets.kr[0]
                     source[5]: SpecCentroid.kr[0]
                     source[6]: SpecFlatness.kr[0]
                     source[7]: SpecPcile.kr[0]
+                    source[8]: MFCC.kr[0]
+                    source[9]: MFCC.kr[1]
+                    source[10]: MFCC.kr[2]
+                    source[11]: MFCC.kr[3]
+                    source[12]: MFCC.kr[4]
+                    source[13]: MFCC.kr[5]
+                    source[14]: MFCC.kr[6]
+                    source[15]: MFCC.kr[7]
+                    source[16]: MFCC.kr[8]
+                    source[17]: MFCC.kr[9]
+                    source[18]: MFCC.kr[10]
+                    source[19]: MFCC.kr[11]
+                    source[20]: MFCC.kr[12]
         """
     )

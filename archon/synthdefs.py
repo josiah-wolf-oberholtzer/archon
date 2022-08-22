@@ -3,6 +3,7 @@ from supriya.synthdefs import Envelope, synthdef
 from supriya.ugens import (  # RMS,
     FFT,
     LPF,
+    MFCC,
     Amplitude,
     BufRateScale,
     EnvGen,
@@ -34,8 +35,9 @@ def analysis(in_=0, tps=10):
         min_frequency=config.PITCH_DETECTION_MIN_FREQUENCY,
         max_frequency=config.PITCH_DETECTION_MAX_FREQUENCY,
     )
-    pv_chain = FFT.new(buffer_id=LocalBuf(4096), source=source)
-    onsets = Onsets.kr(
+    pv_chain = FFT.new(buffer_id=LocalBuf(2048), source=source)
+    mfccs = MFCC.kr(pv_chain=pv_chain)
+    is_onset = Onsets.kr(
         pv_chain=pv_chain,
         floor=0.000001,
         # relaxtime=0.1,
@@ -52,10 +54,11 @@ def analysis(in_=0, tps=10):
             rms,
             frequency.hz_to_midi(),
             is_voiced,
-            onsets,
+            is_onset,
             centroid,
             flatness,
             rolloff,
+            *mfccs
         ],
         trigger=trigger,
     )
