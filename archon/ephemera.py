@@ -18,5 +18,5 @@ class AnalysisTarget:
     centroid: float
     flatness: float
     rolloff: float
-    mfccs: List[float]
+    mfcc: List[float]
     k: int

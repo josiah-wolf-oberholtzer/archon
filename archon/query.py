@@ -41,8 +41,8 @@ class RangeSet:
 
     def transform(self, *, centroid, f0, flatness, is_voiced, rms, rolloff):
         return (
-            self.scale(centroid, self.centroid),
             self.scale(f0, self.f0) if is_voiced else -1.0,
+            self.scale(centroid, self.centroid),
             self.scale(flatness, self.flatness),
             self.scale(rms, self.rms),
             self.scale(rolloff, self.rolloff),
@@ -55,10 +55,55 @@ class Database:
     kdtree: KDTree
     range_set: RangeSet
     root_path: Path
+    use_pitch: bool
+    use_spectral: bool
+    use_mfcc: bool
 
     @classmethod
-    def new(cls, analysis_path: Path) -> "Database":
+    def build_point(
+        cls,
+        range_set: RangeSet,
+        use_pitch: bool,
+        use_spectral: bool,
+        use_mfcc: bool,
+        centroid: float,
+        f0: float,
+        flatness: float,
+        is_voiced: bool,
+        mfcc: List[float],
+        rms: float,
+        rolloff: float,
+    ):
+        (
+            _,
+            scaled_centroid,
+            scaled_flatness,
+            scaled_rms,
+            scaled_rolloff,
+        ) = range_set.transform(
+            centroid=centroid,
+            f0=f0,
+            flatness=flatness,
+            is_voiced=is_voiced,
+            rms=rms,
+            rolloff=rolloff,
+        )
+        point = []
+        if use_pitch:
+            point.append(f0 if is_voiced else -1.0)
+        if use_spectral:
+            point.extend([centroid, flatness, rms, rolloff])
+        if use_mfcc:
+            point.extend(mfcc)
+        return tuple(point)
+
+    @classmethod
+    def new(
+        cls, analysis_path: Path, *, use_pitch=True, use_spectral=True, use_mfcc=True
+    ) -> "Database":
         logger.info(f"Loading database from {analysis_path} ...")
+        if not any([use_pitch, use_spectral, use_mfcc]):
+            raise ValueError
         with timer() as t:
             analysis = json.loads(analysis_path.read_text())
             range_set = RangeSet(
@@ -69,7 +114,7 @@ class Database:
                 rolloff=Range(**analysis["statistics"]["rolloff"]),
             )
             entries = []
-            points = []
+            points: List[Tuple[float, ...]] = []
             for partition in analysis["partitions"]:
                 entries.append(
                     Entry(
@@ -80,11 +125,16 @@ class Database:
                     )
                 )
                 points.append(
-                    range_set.transform(
+                    cls.build_point(
+                        range_set=range_set,
+                        use_pitch=use_pitch,
+                        use_spectral=use_spectral,
+                        use_mfcc=use_mfcc,
                         centroid=partition["centroid"],
                         f0=partition["f0"],
                         flatness=partition["flatness"],
                         is_voiced=partition["is_voiced"],
+                        mfcc=partition["mfcc"],
                         rms=partition["rms"],
                         rolloff=partition["rolloff"],
                     )
@@ -94,6 +144,9 @@ class Database:
                 entries=entries,
                 range_set=range_set,
                 root_path=analysis_path.parent,
+                use_pitch=use_pitch,
+                use_spectral=use_spectral,
+                use_mfcc=use_mfcc,
             )
             logger.info(f"... Loaded {analysis_path} in {t():.4f} seconds")
         return database
@@ -105,15 +158,21 @@ class Database:
         f0: float,
         flatness: float,
         is_voiced: bool,
+        mfcc: List[float],
         rms: float,
         rolloff: float,
         k: int = 25,
     ) -> List[Tuple[Entry, float]]:
-        point = self.range_set.transform(
+        point = self.build_point(
+            range_set=self.range_set,
+            use_pitch=self.use_pitch,
+            use_spectral=self.use_spectral,
+            use_mfcc=self.use_mfcc,
             centroid=centroid,
             f0=f0,
             flatness=flatness,
             is_voiced=is_voiced,
+            mfcc=mfcc,
             rms=rms,
             rolloff=rolloff,
         )
@@ -135,6 +194,7 @@ class Database:
                 f0=analysis_target.f0,
                 flatness=analysis_target.flatness,
                 is_voiced=analysis_target.is_voiced,
+                mfcc=analysis_target.mfcc,
                 rms=analysis_target.rms,
                 rolloff=analysis_target.rolloff,
                 k=analysis_target.k,

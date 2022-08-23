@@ -157,7 +157,7 @@ class Engine:
             centroid,
             flatness,
             rolloff,
-            *mfccs,
+            *mfcc,
         ) = osc_message.contents
         self.analysis_engine.intake(
             peak=peak,
@@ -168,7 +168,7 @@ class Engine:
             centroid=centroid,
             flatness=flatness,
             rolloff=rolloff,
-            mfccs=mfccs,
+            mfcc=mfcc,
         )
 
     async def on_n_end_osc_message(self, osc_message: OscMessage):

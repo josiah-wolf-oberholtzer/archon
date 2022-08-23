@@ -13,7 +13,7 @@ class AnalysisEngine:
         self.centroid = 0.0
         self.flatness = 0.0
         self.rolloff = 0.0
-        self.mfccs = []
+        self.mfcc = []
 
     def intake(
         self,
@@ -26,7 +26,7 @@ class AnalysisEngine:
         centroid: float,
         flatness: float,
         rolloff: float,
-        mfccs: List[float],
+        mfcc: List[float],
     ):
         self.peak = peak
         self.rms = rms
@@ -36,7 +36,7 @@ class AnalysisEngine:
         self.centroid = centroid
         self.flatness = flatness
         self.rolloff = rolloff
-        self.mfccs = mfccs
+        self.mfcc = mfcc
 
     def emit(self) -> Tuple[AnalysisTarget, float, float]:
         analysis_target = AnalysisTarget(
@@ -49,7 +49,7 @@ class AnalysisEngine:
             centroid=self.centroid,
             flatness=self.flatness,
             rolloff=self.rolloff,
-            mfccs=self.mfccs,
+            mfcc=self.mfcc,
             k=25,
         )
         min_sleep, max_sleep = 0.0, 1.0
