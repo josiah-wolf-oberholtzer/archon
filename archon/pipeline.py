@@ -162,7 +162,7 @@ def analyze(
                         f"Analyzed {relative_path} in {tb():.3f} seconds"
                     )
             with timer() as tsc:
-                mfcc = analyze_mfcc(path, hop_length=adjusted_hop_length)
+                mfcc = analyze_mfcc(root_path / path, hop_length=adjusted_hop_length)
                 logger.info(
                     f"[{path_index: >3}/{path_count: >3}] ... "
                     f"Analyzed {relative_path} MFCC in {tsc():.3f} seconds"
@@ -304,6 +304,8 @@ def run(input_path: Path, output_path: Path):
     """
     Run the pipeline.
     """
+    input_path = input_path.resolve()
+    output_path = output_path.resolve()
     if not input_path.exists() and input_path.is_dir():
         raise ValueError(input_path)
     logger.info(f"Running pipeline on {input_path} ...")

@@ -46,7 +46,7 @@ def analysis(in_=0, tps=10):
     centroid = SpecCentroid.kr(pv_chain=pv_chain)
     flatness = SpecFlatness.kr(pv_chain=pv_chain)
     rolloff = SpecPcile.kr(pv_chain=pv_chain)
-    mfccs = MFCC.kr(pv_chain=pv_chain, num_coeffs=20)
+    mfccs = MFCC.kr(pv_chain=pv_chain, coeff_count=13)
     SendReply.kr(
         command_name="/analysis",
         source=[
