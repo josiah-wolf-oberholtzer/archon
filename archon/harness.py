@@ -4,12 +4,7 @@ import logging
 import signal
 from pathlib import Path
 
-from .commands import (
-    BootServerCommand,
-    Command,
-    ExitCommand,
-    StartEngineCommand,
-)
+from .commands import BootServerCommand, Command, ExitCommand, StartEngineCommand
 from .engine import Engine
 
 logger = logging.getLogger(__name__)

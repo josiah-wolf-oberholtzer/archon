@@ -5,6 +5,7 @@ import logging
 import math
 import os
 import sys
+import tempfile
 import traceback
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -12,6 +13,8 @@ from typing import Dict, List, Optional
 import librosa
 import numpy
 from joblib import Parallel, delayed
+from supriya import Session, synthdef
+from supriya.ugens import FFT, MFCC, BufFrames, BufWr, In, Line, LocalBuf
 
 from . import config
 from .utils import timer
@@ -36,6 +39,7 @@ class Analysis:
     f0: numpy.ndarray
     flatness: numpy.ndarray
     is_voiced: numpy.ndarray
+    mfcc: numpy.ndarray
     rms: numpy.ndarray
     rolloff: numpy.ndarray
 
@@ -56,6 +60,7 @@ class Partition:
     f0: float
     flatness: float
     is_voiced: bool
+    mfcc: List[float]
     rms: float
     rolloff: float
 
@@ -82,6 +87,7 @@ def analyze(
     adjusted_frame_length = frame_length * (sr // 44100)
     adjusted_hop_length = hop_length * (sr // 44100)
     adjusted_window_length = window_length * (sr // 44100)
+    block_length = 1024
     try:
         block_count = len(
             [
@@ -91,7 +97,7 @@ def analyze(
                     mono=True,
                     frame_length=adjusted_frame_length,
                     hop_length=adjusted_hop_length,
-                    block_length=1024,
+                    block_length=block_length,
                 )
             ]
         )
@@ -110,7 +116,7 @@ def analyze(
                     mono=True,
                     frame_length=adjusted_frame_length,
                     hop_length=adjusted_hop_length,
-                    block_length=1024,
+                    block_length=block_length,
                 ),
                 1,
             ):
@@ -155,6 +161,12 @@ def analyze(
                         f"[{block_index: >3}/{block_count: >3}] "
                         f"Analyzed {relative_path} in {tb():.3f} seconds"
                     )
+            with timer() as tsc:
+                mfcc = analyze_mfcc(path, hop_length=adjusted_hop_length)
+                logger.info(
+                    f"[{path_index: >3}/{path_count: >3}] ... "
+                    f"Analyzed {relative_path} MFCC in {tsc():.3f} seconds"
+                )
             logger.info(
                 f"[{path_index: >3}/{path_count: >3}] ... "
                 f"Finished analyzing {relative_path} in {t():.3f} total seconds"
@@ -173,6 +185,7 @@ def analyze(
             frame_length=adjusted_frame_length,
             hop_length=adjusted_hop_length,
             is_voiced=is_voiced,
+            mfcc=mfcc,
             path=relative_path,
             rms=rms,
             rolloff=rolloff,
@@ -185,6 +198,54 @@ def analyze(
         logger.warning(f"[{path_index: >3}/{path_count: >3}] {relative_path} failed!")
         traceback.print_exc()
         return None
+
+
+def analyze_mfcc(path: Path, hop_length=512) -> numpy.ndarray:
+    @synthdef()
+    def mfcc_synthdef(in_, output_buffer_id=0, duration=0):
+        source = In.ar(bus=in_)
+        chain = FFT(LocalBuf(2048), source)
+        mfcc = MFCC.kr(pv_chain=chain, coeff_count=13)
+        phase = Line.ar(
+            start=0,
+            stop=BufFrames.kr(output_buffer_id),
+            duration=duration,
+            done_action=2,
+        )
+        BufWr.kr(buffer_id=output_buffer_id, phase=phase, source=mfcc)
+
+    duration = librosa.get_duration(filename=path)
+    sample_rate = librosa.get_samplerate(path)
+    stream = librosa.stream(path, block_length=1, frame_length=1024, hop_length=256)
+    if len(shape := next(stream).shape) == 1:
+        channel_count = 1
+    else:
+        channel_count = shape[0]
+
+    frame_count = int(duration * sample_rate / hop_length)
+
+    with tempfile.TemporaryDirectory() as temp_directory:
+        output_path = Path(temp_directory) / "mfcc.wav"
+        session = Session(input_=path, input_bus_channel_count=channel_count)
+        with session.at(0):
+            output_buffer = session.add_buffer(
+                channel_count=13, frame_count=frame_count
+            )
+            session.add_synth(
+                synthdef=mfcc_synthdef,
+                in_=session.audio_input_bus_group,
+                output_buffer_id=output_buffer,
+                duration=duration,
+            )
+        with session.at(duration):
+            output_buffer.write(
+                file_path=output_path, header_format="WAV", sample_format="FLOAT"
+            )
+        session.render(output_file_path="/dev/null", sample_rate=sample_rate)
+        y, _ = librosa.load(
+            output_path, sr=librosa.get_samplerate(output_path), mono=False
+        )
+    return y
 
 
 def partition(
@@ -207,11 +268,12 @@ def partition(
             is_voiced = analysis.is_voiced[start_index:stop_index]
             f0 = analysis.f0[start_index:stop_index]
             flatness = analysis.flatness[start_index:stop_index]
+            mfcc = analysis.mfcc.T[start_index:stop_index]
             rms = analysis.rms[start_index:stop_index]
             rolloff = analysis.rolloff[start_index:stop_index]
             # hash the underlying data
             hasher = hashlib.sha1()
-            for array in (centroid, is_voiced, f0, flatness, rms, rolloff):
+            for array in (centroid, is_voiced, f0, flatness, mfcc, rms, rolloff):
                 hasher.update(array.data)
             digest = hasher.hexdigest()
             computed_f0 = -1.0
@@ -229,6 +291,7 @@ def partition(
                 f0=computed_f0,
                 flatness=float(numpy.median(flatness)),
                 is_voiced=bool(computed_is_voiced),
+                mfcc=numpy.median(mfcc, axis=0).tolist(),
                 rms=float(numpy.median(rms)),
                 rolloff=float(numpy.median(rolloff)),
             )

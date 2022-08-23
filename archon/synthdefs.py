@@ -36,7 +36,6 @@ def analysis(in_=0, tps=10):
         max_frequency=config.PITCH_DETECTION_MAX_FREQUENCY,
     )
     pv_chain = FFT.new(buffer_id=LocalBuf(2048), source=source)
-    mfccs = MFCC.kr(pv_chain=pv_chain)
     is_onset = Onsets.kr(
         pv_chain=pv_chain,
         floor=0.000001,
@@ -47,6 +46,7 @@ def analysis(in_=0, tps=10):
     centroid = SpecCentroid.kr(pv_chain=pv_chain)
     flatness = SpecFlatness.kr(pv_chain=pv_chain)
     rolloff = SpecPcile.kr(pv_chain=pv_chain)
+    mfccs = MFCC.kr(pv_chain=pv_chain, num_coeffs=20)
     SendReply.kr(
         command_name="/analysis",
         source=[
@@ -58,7 +58,7 @@ def analysis(in_=0, tps=10):
             centroid,
             flatness,
             rolloff,
-            *mfccs
+            *mfccs,
         ],
         trigger=trigger,
     )
