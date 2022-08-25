@@ -110,6 +110,12 @@ def analyze(
             "rolloff": [],
         }
         with timer() as t:
+            with timer() as tsc:
+                mfcc = analyze_mfcc(root_path / path, hop_length=adjusted_hop_length)
+                logger.info(
+                    f"[{path_index: >3}/{path_count: >3}] ... "
+                    f"Analyzed {relative_path} MFCC ({mfcc.shape}) in {tsc():.3f} seconds"
+                )
             for block_index, y in enumerate(
                 librosa.stream(
                     path,
@@ -159,24 +165,18 @@ def analyze(
                     logger.info(
                         f"[{path_index: >3}/{path_count: >3}] "
                         f"[{block_index: >3}/{block_count: >3}] "
-                        f"Analyzed {relative_path} in {tb():.3f} seconds"
+                        f"Analyzed {relative_path} ({f0.shape}) in {tb():.3f} seconds"
                     )
-            with timer() as tsc:
-                mfcc = analyze_mfcc(root_path / path, hop_length=adjusted_hop_length)
-                logger.info(
-                    f"[{path_index: >3}/{path_count: >3}] ... "
-                    f"Analyzed {relative_path} MFCC in {tsc():.3f} seconds"
-                )
-            logger.info(
-                f"[{path_index: >3}/{path_count: >3}] ... "
-                f"Finished analyzing {relative_path} in {t():.3f} total seconds"
-            )
         centroid = numpy.concatenate(analyses["centroid"])
         f0 = numpy.concatenate(analyses["f0"])
         flatness = numpy.concatenate(analyses["flatness"])
         is_voiced = numpy.concatenate(analyses["is_voiced"])
         rms = numpy.concatenate(analyses["rms"])
         rolloff = numpy.concatenate(analyses["rolloff"])
+        logger.info(
+            f"[{path_index: >3}/{path_count: >3}] ... "
+            f"Finished analyzing {relative_path} ({f0.shape}) in {t():.3f} total seconds"
+        )
         analysis = Analysis(
             centroid=centroid,
             f0=f0,
@@ -216,7 +216,7 @@ def analyze_mfcc(path: Path, hop_length=512) -> numpy.ndarray:
 
     duration = librosa.get_duration(filename=path)
     sample_rate = librosa.get_samplerate(path)
-    stream = librosa.stream(path, block_length=1, frame_length=1024, hop_length=256)
+    stream = librosa.stream(path, block_length=1, frame_length=1024, hop_length=256, mono=False)
     if len(shape := next(stream).shape) == 1:
         channel_count = 1
     else:
