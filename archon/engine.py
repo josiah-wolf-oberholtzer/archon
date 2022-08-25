@@ -31,7 +31,14 @@ class Engine:
     emission.
     """
 
-    def __init__(self, analysis_path: Path):
+    def __init__(
+        self,
+        *,
+        analysis_path: Path,
+        use_mfcc: bool,
+        use_pitch: bool,
+        use_spectral: bool,
+    ):
         self.is_running = False
         self.server = AsyncServer()
         self.provider = Provider.from_context(self.server)
@@ -39,7 +46,12 @@ class Engine:
         self.analysis_engine = AnalysisEngine()
         self.buffer_manager = BufferManager(self.provider, analysis_path.parent)
         self.clock = AsyncClock()
-        self.database = Database.new(analysis_path)
+        self.database = Database.new(
+            analysis_path=analysis_path,
+            use_mfcc=use_mfcc,
+            use_pitch=use_pitch,
+            use_spectral=use_spectral,
+        )
         self.pattern_factory = PatternFactory()
         self.pattern_futures: Dict[UUID, asyncio.Future] = {}
         self.pattern_players: Dict[UUID, PatternPlayer] = {}

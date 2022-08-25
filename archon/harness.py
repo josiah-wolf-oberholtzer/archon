@@ -18,9 +18,22 @@ class Harness:
     engine and a text UI.
     """
 
-    def __init__(self, analysis_path: Path, loop):
+    def __init__(
+        self,
+        *,
+        analysis_path: Path,
+        loop: asyncio.AbstractEventLoop,
+        use_mfcc: bool,
+        use_pitch: bool,
+        use_spectral: bool,
+    ):
         self.command_queue: asyncio.Queue[Command] = asyncio.Queue()
-        self.engine = Engine(analysis_path)
+        self.engine = Engine(
+            analysis_path=analysis_path,
+            use_mfcc=use_mfcc,
+            use_pitch=use_pitch,
+            use_spectral=use_spectral,
+        )
         self.exit_future = loop.create_future()
 
     async def exit(self):
@@ -45,10 +58,16 @@ class Harness:
         asyncio.get_running_loop().create_task(shutdown_async(signal_name))
 
 
-def run(analysis_path: Path):
+def run(*, analysis_path: Path, use_mfcc: bool, use_pitch: bool, use_spectral: bool):
     loop = asyncio.get_event_loop()
-    harness = Harness(analysis_path, loop)
-    for signal_name in ("SIGINT", "SIGTSTP", "SIGQUIT", "SIGTERM", "SIGHUP"):
+    harness = Harness(
+        analysis_path=analysis_path,
+        loop=loop,
+        use_mfcc=use_mfcc,
+        use_pitch=use_pitch,
+        use_spectral=use_spectral,
+    )
+    for signal_name in ("SIGINT", "SIGTSTP"):
         loop.add_signal_handler(
             getattr(signal, signal_name),
             functools.partial(harness.shutdown, signal_name),

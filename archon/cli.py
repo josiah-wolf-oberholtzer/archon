@@ -11,6 +11,9 @@ def parse_args(args=None):
     # run the harness
     harness_parser = subparsers.add_parser("run-harness")
     harness_parser.add_argument("--input", metavar="FILE", required=True, type=Path)
+    harness_parser.add_argument("--use-mfcc", action=argparse.BooleanOptionalAction)
+    harness_parser.add_argument("--use-pitch", action=argparse.BooleanOptionalAction)
+    harness_parser.add_argument("--use-spectral", action=argparse.BooleanOptionalAction)
     # run the pipeline
     pipeline_parser = subparsers.add_parser("run-pipeline")
     pipeline_parser.add_argument("--input", metavar="DIR", required=True, type=Path)
@@ -28,4 +31,9 @@ def main(args=None):
     if parsed_args.command == "validate-analysis":
         pipeline.validate(analysis_path=parsed_args.input)
     if parsed_args.command == "run-harness":
-        harness.run(analysis_path=parsed_args.input)
+        harness.run(
+            analysis_path=parsed_args.input,
+            use_mfcc=parsed_args.use_mfcc,
+            use_pitch=parsed_args.use_pitch,
+            use_spectral=parsed_args.use_spectral,
+        )

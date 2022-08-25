@@ -92,14 +92,14 @@ class Database:
         if use_pitch:
             point.append(f0 if is_voiced else -1.0)
         if use_spectral:
-            point.extend([centroid, flatness, rms, rolloff])
+            point.extend([scaled_centroid, scaled_flatness, scaled_rms, scaled_rolloff])
         if use_mfcc:
             point.extend(mfcc)
         return tuple(point)
 
     @classmethod
     def new(
-        cls, analysis_path: Path, *, use_pitch=True, use_spectral=True, use_mfcc=True
+        cls, *, analysis_path: Path, use_mfcc: bool, use_pitch: bool, use_spectral: bool
     ) -> "Database":
         logger.info(f"Loading database from {analysis_path} ...")
         if not any([use_pitch, use_spectral, use_mfcc]):

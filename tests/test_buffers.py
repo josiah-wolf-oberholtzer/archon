@@ -56,7 +56,9 @@ def test_BufferManager():
     analysis_path = root_path / "analysis.json"
     analysis = json.loads(analysis_path.read_text())
     provider = Provider.realtime()
-    database = Database.new(analysis_path)
+    database = Database.new(
+        analysis_path=analysis_path, use_mfcc=True, use_pitch=True, use_spectral=True
+    )
     partition = analysis["partitions"][0]
     entries = [
         entry
@@ -65,6 +67,7 @@ def test_BufferManager():
             f0=partition["f0"],
             flatness=partition["flatness"],
             is_voiced=partition["is_voiced"],
+            mfcc=partition["mfcc"],
             rms=partition["rms"],
             rolloff=partition["rolloff"],
             k=6,

@@ -55,9 +55,6 @@ def test_analysis():
                     window_type: 0.0
                     active: 1.0
                     window_size: 0.0
-            -   MFCC.kr:
-                    pv_chain: FFT.kr[0]
-                    coeff_count: 13.0
             -   Onsets.kr:
                     pv_chain: FFT.kr[0]
                     threshold: 0.01
@@ -76,6 +73,9 @@ def test_analysis():
                     pv_chain: FFT.kr[0]
                     fraction: 0.5
                     interpolate: 0.0
+            -   MFCC.kr:
+                    pv_chain: FFT.kr[0]
+                    coeff_count: 13.0
             -   UnaryOpUGen(HZ_TO_MIDI).kr:
                     source: Pitch.kr[0]
             -   SendReply.kr:
