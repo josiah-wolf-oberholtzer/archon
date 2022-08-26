@@ -8,11 +8,7 @@ from .config import ArchonConfig
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--log-level", default="info")
-    parser.add_argument(
-        "path",
-        help="path to analysis JSON",
-        type=Path,
-    )
+    parser.add_argument("path", help="path to analysis JSON", type=Path)
     subparsers = parser.add_subparsers(dest="command", required=True)
     # run the harness
     harness_parser = subparsers.add_parser("run-harness")
@@ -57,9 +53,7 @@ def parse_args(args=None):
 
 def main(args=None):
     parsed_args = parse_args(args)
-    config = ArchonConfig(
-        analysis_path=parsed_args.path.resolve(),
-    )
+    config = ArchonConfig(analysis_path=parsed_args.path.resolve())
     if not any([config.use_pitch, config.use_spectral, config.use_mfcc]):
         raise ValueError
     if parsed_args.command == "run-pipeline":
