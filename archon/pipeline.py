@@ -232,10 +232,14 @@ def analyze_mfcc(path: Path, hop_length=512) -> numpy.ndarray:
     with tempfile.TemporaryDirectory() as temp_directory:
         logger.info(f"Rendering MFCC analysis in {temp_directory}")
         output_path = Path(temp_directory) / "mfcc.wav"
-        session = Session(input_=path, input_bus_channel_count=channel_count)
+        session = Session(
+            input_=path,
+            input_bus_channel_count=channel_count,
+            output_bus_channel_count=1,  # can't currently just write to /dev/null
+        )
         with session.at(0):
             output_buffer = session.add_buffer(
-                channel_count=13, frame_count=frame_count
+                channel_count=42, frame_count=frame_count
             )
             session.add_synth(
                 synthdef=mfcc_synthdef,
