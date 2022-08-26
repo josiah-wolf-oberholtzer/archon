@@ -1,7 +1,11 @@
+from pathlib import Path
+
 import pytest
 import pytest_asyncio
 from supriya import scsynth
 from supriya.realtime.servers import AsyncServer, Server
+
+from archon.config import ArchonConfig
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -27,3 +31,8 @@ async def shutdown_async_servers(shutdown_scsynth, event_loop):
     yield
     for server in tuple(AsyncServer._servers):
         await server._shutdown()
+
+
+@pytest.fixture
+def archon_config():
+    return ArchonConfig(analysis_path=Path(__file__).parent / "analysis.json")

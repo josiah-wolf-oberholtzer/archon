@@ -4,7 +4,7 @@ from archon import synthdefs
 
 
 def test_analysis():
-    assert str(synthdefs.analysis) == normalize(
+    assert str(synthdefs.build_analysis_synthdef()) == normalize(
         """
         synthdef:
             name: analysis

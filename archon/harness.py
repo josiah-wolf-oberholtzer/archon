@@ -2,9 +2,9 @@ import asyncio
 import functools
 import logging
 import signal
-from pathlib import Path
 
 from .commands import BootServerCommand, Command, ExitCommand, StartEngineCommand
+from .config import ArchonConfig
 from .engine import Engine
 
 logger = logging.getLogger(__name__)
@@ -18,22 +18,9 @@ class Harness:
     engine and a text UI.
     """
 
-    def __init__(
-        self,
-        *,
-        analysis_path: Path,
-        loop: asyncio.AbstractEventLoop,
-        use_mfcc: bool,
-        use_pitch: bool,
-        use_spectral: bool,
-    ):
+    def __init__(self, *, config: ArchonConfig, loop: asyncio.AbstractEventLoop):
         self.command_queue: asyncio.Queue[Command] = asyncio.Queue()
-        self.engine = Engine(
-            analysis_path=analysis_path,
-            use_mfcc=use_mfcc,
-            use_pitch=use_pitch,
-            use_spectral=use_spectral,
-        )
+        self.engine = Engine(config)
         self.exit_future = loop.create_future()
 
     async def exit(self):
@@ -58,15 +45,9 @@ class Harness:
         asyncio.get_running_loop().create_task(shutdown_async(signal_name))
 
 
-def run(*, analysis_path: Path, use_mfcc: bool, use_pitch: bool, use_spectral: bool):
+def run(config: ArchonConfig):
     loop = asyncio.get_event_loop()
-    harness = Harness(
-        analysis_path=analysis_path,
-        loop=loop,
-        use_mfcc=use_mfcc,
-        use_pitch=use_pitch,
-        use_spectral=use_spectral,
-    )
+    harness = Harness(config=config, loop=loop)
     for signal_name in ("SIGINT", "SIGTSTP"):
         loop.add_signal_handler(
             getattr(signal, signal_name),

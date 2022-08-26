@@ -4,7 +4,7 @@ from .ephemera import AnalysisTarget, PatternFlavor
 
 
 class AnalysisEngine:
-    def __init__(self):
+    def __init__(self, mfcc_size=13, history_size=10):
         self.peak = 0.0
         self.rms = 0.0
         self.f0 = 0.0

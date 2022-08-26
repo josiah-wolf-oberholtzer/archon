@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import random
-from pathlib import Path
 from typing import Dict, List
 from uuid import UUID, uuid4
 
@@ -13,10 +12,11 @@ from supriya.realtime import AsyncServer
 
 from .analysis import AnalysisEngine
 from .buffers import BufferManager
+from .config import ArchonConfig
 from .ephemera import AnalysisTarget
 from .patterns import PatternFactory
 from .query import Database
-from .synthdefs import analysis
+from .synthdefs import build_analysis_synthdef
 from .utils import scale
 
 logger = logging.getLogger(__name__)
@@ -31,27 +31,16 @@ class Engine:
     emission.
     """
 
-    def __init__(
-        self,
-        *,
-        analysis_path: Path,
-        use_mfcc: bool,
-        use_pitch: bool,
-        use_spectral: bool,
-    ):
+    def __init__(self, config: ArchonConfig):
+        self.config = config
         self.is_running = False
         self.server = AsyncServer()
         self.provider = Provider.from_context(self.server)
         self.osc_callbacks: List[OscCallbackProxy] = []
         self.analysis_engine = AnalysisEngine()
-        self.buffer_manager = BufferManager(self.provider, analysis_path.parent)
+        self.buffer_manager = BufferManager(self.provider, config.root_path)
         self.clock = AsyncClock()
-        self.database = Database.new(
-            analysis_path=analysis_path,
-            use_mfcc=use_mfcc,
-            use_pitch=use_pitch,
-            use_spectral=use_spectral,
-        )
+        self.database = Database.new(config)
         self.pattern_factory = PatternFactory()
         self.pattern_futures: Dict[UUID, asyncio.Future] = {}
         self.pattern_players: Dict[UUID, PatternPlayer] = {}
@@ -78,7 +67,12 @@ class Engine:
             )
         async with self.provider.at():
             self.provider.add_synth(
-                in_=self.server.options.output_bus_channel_count, synthdef=analysis
+                in_=self.server.options.output_bus_channel_count,
+                synthdef=build_analysis_synthdef(
+                    mfcc_count=self.config.mfcc_count,
+                    pitch_detection_max_frequency=self.config.pitch_detection_max_frequency,
+                    pitch_detection_min_frequency=self.config.pitch_detection_min_frequency,
+                ),
             )
         logger.info("... server booted!")
 

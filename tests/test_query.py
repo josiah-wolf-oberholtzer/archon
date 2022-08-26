@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 import pytest
 
@@ -64,16 +63,18 @@ from archon.query import Database
     ],
 )
 def test_Database(
-    use_mfcc, use_pitch, use_spectral, expected_digests, expected_distances
+    archon_config,
+    use_mfcc,
+    use_pitch,
+    use_spectral,
+    expected_digests,
+    expected_distances,
 ):
-    analysis_path = Path(__file__).parent / "analysis.json"
-    analysis = json.loads(analysis_path.read_text())
-    database = Database.new(
-        analysis_path=analysis_path,
-        use_mfcc=use_mfcc,
-        use_pitch=use_pitch,
-        use_spectral=use_spectral,
-    )
+    archon_config.use_mfcc = use_mfcc
+    archon_config.use_pitch = use_pitch
+    archon_config.use_spectral = use_spectral
+    analysis = json.loads(archon_config.analysis_path.read_text())
+    database = Database.new(archon_config)
     partition = analysis["partitions"][0]
     pairs = database.query(
         centroid=partition["centroid"],

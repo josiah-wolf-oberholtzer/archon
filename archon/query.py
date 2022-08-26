@@ -7,6 +7,7 @@ from typing import List, Tuple
 import numpy
 from scipy.spatial import KDTree
 
+from .config import ArchonConfig
 from .ephemera import AnalysisTarget
 from .utils import timer
 
@@ -51,13 +52,10 @@ class RangeSet:
 
 @dataclasses.dataclass
 class Database:
+    config: ArchonConfig
     entries: List[Entry]
     kdtree: KDTree
     range_set: RangeSet
-    root_path: Path
-    use_pitch: bool
-    use_spectral: bool
-    use_mfcc: bool
 
     @classmethod
     def build_point(
@@ -98,14 +96,10 @@ class Database:
         return tuple(point)
 
     @classmethod
-    def new(
-        cls, *, analysis_path: Path, use_mfcc: bool, use_pitch: bool, use_spectral: bool
-    ) -> "Database":
-        logger.info(f"Loading database from {analysis_path} ...")
-        if not any([use_pitch, use_spectral, use_mfcc]):
-            raise ValueError
+    def new(cls, config: ArchonConfig) -> "Database":
+        logger.info(f"Loading database from {config.analysis_path} ...")
         with timer() as t:
-            analysis = json.loads(analysis_path.read_text())
+            analysis = json.loads(config.analysis_path.read_text())
             range_set = RangeSet(
                 centroid=Range(**analysis["statistics"]["centroid"]),
                 f0=Range(**analysis["statistics"]["f0"]),
@@ -127,9 +121,9 @@ class Database:
                 points.append(
                     cls.build_point(
                         range_set=range_set,
-                        use_pitch=use_pitch,
-                        use_spectral=use_spectral,
-                        use_mfcc=use_mfcc,
+                        use_pitch=config.use_pitch,
+                        use_spectral=config.use_spectral,
+                        use_mfcc=config.use_mfcc,
                         centroid=partition["centroid"],
                         f0=partition["f0"],
                         flatness=partition["flatness"],
@@ -140,15 +134,12 @@ class Database:
                     )
                 )
             database = cls(
-                kdtree=KDTree(numpy.asarray(points, dtype=numpy.float32)),
+                config=config,
                 entries=entries,
+                kdtree=KDTree(numpy.asarray(points, dtype=numpy.float32)),
                 range_set=range_set,
-                root_path=analysis_path.parent,
-                use_pitch=use_pitch,
-                use_spectral=use_spectral,
-                use_mfcc=use_mfcc,
             )
-            logger.info(f"... Loaded {analysis_path} in {t():.4f} seconds")
+            logger.info(f"... Loaded {config.analysis_path} in {t():.4f} seconds")
         return database
 
     def query(
@@ -165,9 +156,9 @@ class Database:
     ) -> List[Tuple[Entry, float]]:
         point = self.build_point(
             range_set=self.range_set,
-            use_pitch=self.use_pitch,
-            use_spectral=self.use_spectral,
-            use_mfcc=self.use_mfcc,
+            use_pitch=self.config.use_pitch,
+            use_spectral=self.config.use_spectral,
+            use_mfcc=self.config.use_mfcc,
             centroid=centroid,
             f0=f0,
             flatness=flatness,

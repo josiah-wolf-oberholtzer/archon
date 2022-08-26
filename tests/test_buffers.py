@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from uuid import UUID, uuid4
 
 from supriya.providers import BufferProxy, Provider
@@ -51,14 +50,10 @@ def format_manager(manager, cache):
     }
 
 
-def test_BufferManager():
-    root_path = Path(__file__).parent
-    analysis_path = root_path / "analysis.json"
-    analysis = json.loads(analysis_path.read_text())
+def test_BufferManager(archon_config):
+    analysis = json.loads(archon_config.analysis_path.read_text())
     provider = Provider.realtime()
-    database = Database.new(
-        analysis_path=analysis_path, use_mfcc=True, use_pitch=True, use_spectral=True
-    )
+    database = Database.new(archon_config)
     partition = analysis["partitions"][0]
     entries = [
         entry
@@ -75,7 +70,7 @@ def test_BufferManager():
     ]
     cache = {}
     uuid_a, uuid_b = uuid4(), uuid4()
-    manager = BufferManager(provider, root_path=root_path)
+    manager = BufferManager(provider, root_path=archon_config.root_path)
     assert format_manager(manager, cache) == {
         "b2d": {},
         "b2e": {},

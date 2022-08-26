@@ -16,7 +16,7 @@ from joblib import Parallel, delayed
 from supriya import Session, synthdef
 from supriya.ugens import FFT, MFCC, BufFrames, BufWr, In, Line, LocalBuf
 
-from . import config
+from .config import ArchonConfig
 from .utils import timer
 
 logger = logging.getLogger(__name__)
@@ -66,8 +66,8 @@ class Partition:
 
 
 def analyze(
+    config: ArchonConfig,
     path: Path,
-    root_path: Path,
     path_index: int = 1,
     path_count: int = 1,
     setup_logging: bool = False,
@@ -81,7 +81,7 @@ def analyze(
     if setup_logging:
         logging.basicConfig()
         logging.getLogger("archon").setLevel(logging.INFO)
-    relative_path = path.relative_to(root_path)
+    relative_path = path.relative_to(config.root_path)
     logger.info(f"[{path_index: >3}/{path_count: >3}] Analyzing {relative_path} ...")
     sr = librosa.get_samplerate(path)
     adjusted_frame_length = frame_length * (sr // 44100)
@@ -111,7 +111,9 @@ def analyze(
         }
         with timer() as t:
             with timer() as tsc:
-                mfcc = analyze_mfcc(root_path / path, hop_length=adjusted_hop_length)
+                mfcc = analyze_mfcc(
+                    config.root_path / path, hop_length=adjusted_hop_length
+                )
                 logger.info(
                     f"[{path_index: >3}/{path_count: >3}] ... "
                     f"Analyzed {relative_path} MFCC ({mfcc.shape}) in {tsc():.3f} seconds"
@@ -154,8 +156,8 @@ def analyze(
                     )
                     f0, is_voiced, _ = librosa.pyin(
                         y=y,
-                        fmin=config.PITCH_DETECTION_MIN_FREQUENCY,
-                        fmax=config.PITCH_DETECTION_MAX_FREQUENCY,
+                        fmin=config.pitch_detection_min_frequency,
+                        fmax=config.pitch_detection_max_frequency,
                         sr=sr,
                         frame_length=adjusted_frame_length,
                         hop_length=adjusted_hop_length,
@@ -205,7 +207,8 @@ def analyze_mfcc(path: Path, hop_length=512) -> numpy.ndarray:
     def mfcc_synthdef(in_, output_buffer_id=0, duration=0):
         source = In.ar(bus=in_)
         chain = FFT(LocalBuf(2048), source)
-        mfcc = MFCC.kr(pv_chain=chain, coeff_count=13)
+        # Analyze all possible MFCC coeffs, can query against a subset
+        mfcc = MFCC.kr(pv_chain=chain, coeff_count=42)
         phase = Line.ar(
             start=0,
             stop=BufFrames.kr(output_buffer_id),
@@ -303,17 +306,15 @@ def partition(
     return partitions
 
 
-def run(input_path: Path, output_path: Path):
+def run(config: ArchonConfig):
     """
     Run the pipeline.
     """
-    input_path = input_path.resolve()
-    output_path = output_path.resolve()
-    if not input_path.exists() and input_path.is_dir():
-        raise ValueError(input_path)
-    logger.info(f"Running pipeline on {input_path} ...")
+    if not config.root_path.exists():
+        raise ValueError(config.analysis_path)
+    logger.info(f"Running pipeline on {config.root_path} ...")
     with timer() as t:
-        all_paths = sorted(input_path.glob("**/*.wav"))
+        all_paths = sorted(config.root_path.glob("**/*.wav"))
         path_count = len(all_paths)
         total_source_time = sum(
             librosa.get_duration(filename=path) for path in all_paths
@@ -324,8 +325,8 @@ def run(input_path: Path, output_path: Path):
             x
             for x in Parallel(n_jobs=job_count)(
                 delayed(analyze)(
+                    config,
                     audio_path,
-                    input_path,
                     path_index=path_index,
                     path_count=path_count,
                     setup_logging=True,
@@ -357,7 +358,7 @@ def run(input_path: Path, output_path: Path):
                     statistics[key][3] += feature.shape[0]
 
             for x in partition(analysis):
-                if x.rms < config.SILENCE_THRESHOLD_DB:  # Ignore silence
+                if x.rms < config.silence_threshold_db:  # Ignore silence
                     continue
                 partitions[x.digest] = x  # Use the hash to ignore duplicates
 
@@ -375,23 +376,22 @@ def run(input_path: Path, output_path: Path):
                 for key, value in statistics.items()
             },
         }
-        output_path.write_text(json.dumps(data, sort_keys=True, indent=2))
+        config.analysis_path.write_text(json.dumps(data, sort_keys=True, indent=2))
         logger.info(
             f"Pipeline finished analyzing {total_source_time:.3f} seconds of audio "
             f"in {t():.3f} seconds"
         )
 
 
-def validate(analysis_path: Path):
+def validate(config: ArchonConfig):
     """
     Validate an analysis file.
     """
-    logger.info(f"Validating {analysis_path} ...")
-    analysis = json.loads(analysis_path.read_text())
-    root_path = analysis_path.parent
+    logger.info(f"Validating {config.analysis_path} ...")
+    analysis = json.loads(config.analysis_path.read_text())
     missing = False
     for audio_path in sorted(
-        set(root_path / x["path"] for x in analysis["partitions"])
+        set(config.root_path / x["path"] for x in analysis["partitions"])
     ):
         if audio_path.exists():
             logger.info(f"- {audio_path}: exists!")
