@@ -176,8 +176,10 @@ class Database:
             rms=rms,
             rolloff=rolloff,
         )
-        distances, indices = self.kdtree.query(point, k=k)
         logger.info(f"Querying point: {point}")
+        with timer() as t:
+            distances, indices = self.kdtree.query(point, k=k)
+            logger.info(f"... Queried in {t():.4f} seconds")
         logger.info(f"Distances: {[round(x, 3) for x in distances]}")
         return [
             (self.entries[indices[i]], round(distances[i], 6))

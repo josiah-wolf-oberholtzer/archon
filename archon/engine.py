@@ -157,7 +157,7 @@ class Engine:
         logger.info(f"Pattern started: {uuid}")
 
     async def on_analysis_osc_message(self, osc_message: OscMessage):
-        logger.info(f"/analysis received: {osc_message!r}")
+        logger.debug(f"/analysis received: {osc_message!r}")
         (
             _,
             _,

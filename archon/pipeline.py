@@ -216,7 +216,9 @@ def analyze_mfcc(path: Path, hop_length=512) -> numpy.ndarray:
 
     duration = librosa.get_duration(filename=path)
     sample_rate = librosa.get_samplerate(path)
-    stream = librosa.stream(path, block_length=1, frame_length=1024, hop_length=256, mono=False)
+    stream = librosa.stream(
+        path, block_length=1, frame_length=1024, hop_length=256, mono=False
+    )
     if len(shape := next(stream).shape) == 1:
         channel_count = 1
     else:
@@ -225,6 +227,7 @@ def analyze_mfcc(path: Path, hop_length=512) -> numpy.ndarray:
     frame_count = int(duration * sample_rate / hop_length)
 
     with tempfile.TemporaryDirectory() as temp_directory:
+        logger.info(f"Rendering MFCC analysis in {temp_directory}")
         output_path = Path(temp_directory) / "mfcc.wav"
         session = Session(input_=path, input_bus_channel_count=channel_count)
         with session.at(0):
@@ -241,7 +244,7 @@ def analyze_mfcc(path: Path, hop_length=512) -> numpy.ndarray:
             output_buffer.write(
                 file_path=output_path, header_format="WAV", sample_format="FLOAT"
             )
-        session.render(output_file_path="/dev/null", sample_rate=sample_rate)
+        session.render(render_directory_path=temp_directory, sample_rate=sample_rate)
         y, _ = librosa.load(
             output_path, sr=librosa.get_samplerate(output_path), mono=False
         )

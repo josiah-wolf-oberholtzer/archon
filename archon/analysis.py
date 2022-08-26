@@ -13,7 +13,7 @@ class AnalysisEngine:
         self.centroid = 0.0
         self.flatness = 0.0
         self.rolloff = 0.0
-        self.mfcc = []
+        self.mfcc = [0.0] * 13
 
     def intake(
         self,
