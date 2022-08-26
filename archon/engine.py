@@ -37,7 +37,7 @@ class Engine:
         self.server = AsyncServer()
         self.provider = Provider.from_context(self.server)
         self.osc_callbacks: List[OscCallbackProxy] = []
-        self.analysis_engine = AnalysisEngine()
+        self.analysis_engine = AnalysisEngine(config)
         self.buffer_manager = BufferManager(self.provider, config.root_path)
         self.clock = AsyncClock()
         self.database = Database.new(config)

@@ -1,19 +1,24 @@
 from typing import List, Tuple
 
+import numpy
+
+from .config import ArchonConfig
 from .ephemera import AnalysisTarget, PatternFlavor
 
 
 class AnalysisEngine:
-    def __init__(self, mfcc_size=13, history_size=10):
-        self.peak = 0.0
-        self.rms = 0.0
-        self.f0 = 0.0
-        self.is_voiced = False
-        self.is_onset = False
-        self.centroid = 0.0
-        self.flatness = 0.0
-        self.rolloff = 0.0
-        self.mfcc = [0.0] * 13
+    def __init__(self, config: ArchonConfig):
+        self.config = config
+        self.index = 0
+        self.peak: numpy.ndarray = numpy.ndarray(config.history_size)
+        self.rms: numpy.ndarray = numpy.ndarray(config.history_size)
+        self.f0: numpy.ndarray = numpy.ndarray(config.history_size)
+        self.is_voiced: numpy.ndarray = numpy.ndarray(config.history_size, dtype=numpy.bool_)
+        self.is_onset: numpy.ndarray = numpy.ndarray(config.history_size, dtype=numpy.bool_)
+        self.centroid: numpy.ndarray = numpy.ndarray(config.history_size)
+        self.flatness: numpy.ndarray = numpy.ndarray(config.history_size)
+        self.rolloff: numpy.ndarray = numpy.ndarray(config.history_size)
+        self.mfcc: numpy.ndarray = numpy.ndarray((config.history_size, config.mfcc_count))
 
     def intake(
         self,
@@ -28,28 +33,30 @@ class AnalysisEngine:
         rolloff: float,
         mfcc: List[float],
     ):
-        self.peak = peak
-        self.rms = rms
-        self.f0 = f0
-        self.is_voiced = is_voiced
-        self.is_onset = is_onset
-        self.centroid = centroid
-        self.flatness = flatness
-        self.rolloff = rolloff
-        self.mfcc = mfcc
+        index = self.index
+        self.peak[index] = peak
+        self.rms[index] = rms
+        self.f0[index] = f0
+        self.is_voiced[index] = is_voiced
+        self.is_onset[index] = is_onset
+        self.centroid[index] = centroid
+        self.flatness[index] = flatness
+        self.rolloff[index] = rolloff
+        self.mfcc[index] = mfcc
+        self.index = (index + 1) % self.config.history_size
 
     def emit(self) -> Tuple[AnalysisTarget, float, float]:
         analysis_target = AnalysisTarget(
             pattern_flavor=PatternFlavor.BASIC,
-            peak=self.peak,
-            rms=self.rms,
-            f0=self.f0,
-            is_voiced=self.is_voiced,
-            is_onset=self.is_onset,
-            centroid=self.centroid,
-            flatness=self.flatness,
-            rolloff=self.rolloff,
-            mfcc=self.mfcc,
+            peak=float(self.peak.mean()),
+            rms=float(self.rms.mean()),
+            f0=float(self.f0.mean()),
+            is_voiced=bool(self.is_voiced.mean()),
+            is_onset=bool(self.is_onset.mean()),
+            centroid=float(self.centroid.mean()),
+            flatness=float(self.flatness.mean()),
+            rolloff=float(self.rolloff.mean()),
+            mfcc=self.mfcc.mean(axis=0).tolist(),
             k=25,
         )
         min_sleep, max_sleep = 0.0, 1.0

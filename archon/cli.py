@@ -8,10 +8,10 @@ from .config import ArchonConfig
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--log-level", default="info")
-    parser.add_argument("path", help="path to analysis JSON", type=Path)
     subparsers = parser.add_subparsers(dest="command", required=True)
     # run the harness
     harness_parser = subparsers.add_parser("run-harness")
+    harness_parser.add_argument("path", help="path to analysis JSON", type=Path)
     harness_parser.add_argument(
         "--history-size",
         default=10,
@@ -45,9 +45,11 @@ def parse_args(args=None):
         help="use spectral features for querying (default: %(default)s)",
     )
     # run the pipeline
-    subparsers.add_parser("run-pipeline")
+    pipeline_parser = subparsers.add_parser("run-pipeline")
+    pipeline_parser.add_argument("path", help="path to analysis JSON", type=Path)
     # validate analysis
-    subparsers.add_parser("validate-analysis")
+    validate_parser = subparsers.add_parser("validate-analysis")
+    validate_parser.add_argument("path", help="path to analysis JSON", type=Path)
     return parser.parse_args()
 
 

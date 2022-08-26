@@ -139,7 +139,10 @@ class Database:
                 kdtree=KDTree(numpy.asarray(points, dtype=numpy.float32)),
                 range_set=range_set,
             )
-            logger.info(f"... Loaded {config.analysis_path} in {t():.4f} seconds")
+            logger.info(
+                f"... Loaded {len(points)} points from {config.analysis_path} ",
+                f"in {t():.4f} seconds",
+            )
         return database
 
     def query(
