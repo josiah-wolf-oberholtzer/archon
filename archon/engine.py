@@ -210,6 +210,9 @@ class Engine:
             logger.info("Polling analysis engine ...")
             analysis_target, min_sleep, max_sleep = self.analysis_engine.emit()
             # check if polyphony has capacity
-            await self.on_analysis_target(analysis_target)
+            if analysis_target is not None:
+                await self.on_analysis_target(analysis_target)
+            else:
+                logger.info("Analysis engine not yet primed")
             await asyncio.sleep(scale(random.random(), 0, 1, min_sleep, max_sleep))
         logger.info("... exiting analysis engine poller.")
