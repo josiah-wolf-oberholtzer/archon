@@ -4,19 +4,19 @@ clean:
 	find . -name '*.pyc' | xargs rm -Rf
 
 black-check: ## Check syntax via black
-	black --skip-magic-trailing-comma --target-version py310 --check --diff .
+	black --check --diff .
 
 black-reformat: ## Reformat via black
-	black --skip-magic-trailing-comma --target-version py310 .
+	black .
 
 flake8:  ## Check via flake8
 	flake8 .
 
 isort: ## Reformat via isort
-	isort --case-sensitive --multi-line 3 --trailing-comma --use-parentheses .
+	isort .
 
 mypy:  ## Run mypy
-	mypy --ignore-missing-imports archon
+	mypy archon
 
 pytest:
 	pytest
