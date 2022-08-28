@@ -16,7 +16,7 @@ from .config import ArchonConfig
 from .ephemera import AnalysisTarget
 from .patterns import PatternFactory
 from .query import Database
-from .synthdefs import build_analysis_synthdef
+from .synthdefs import build_online_analysis_synthdef
 from .utils import scale
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ class Engine:
         async with self.provider.at():
             self.provider.add_synth(
                 in_=self.server.options.output_bus_channel_count,
-                synthdef=build_analysis_synthdef(
+                synthdef=build_online_analysis_synthdef(
                     mfcc_count=self.config.mfcc_count,
                     pitch_detection_max_frequency=self.config.pitch_detection_max_frequency,
                     pitch_detection_min_frequency=self.config.pitch_detection_min_frequency,

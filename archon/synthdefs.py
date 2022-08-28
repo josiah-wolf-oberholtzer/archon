@@ -5,10 +5,13 @@ from supriya.ugens import (  # RMS,
     LPF,
     MFCC,
     Amplitude,
+    BufFrames,
     BufRateScale,
+    BufWr,
     EnvGen,
     Impulse,
     In,
+    Line,
     LocalBuf,
     Onsets,
     Out,
@@ -22,7 +25,64 @@ from supriya.ugens import (  # RMS,
 )
 
 
-def build_analysis_synthdef(
+def build_offline_analysis_synthdef(
+    frame_length: int = 2048,
+    hop_ratio: float = 0.5,
+    pitch_detection_max_frequency: float = 3000.0,
+    pitch_detection_min_frequency: float = 60.0,
+):
+    @synthdef()
+    def analysis(in_, output_buffer_id, duration):
+        source = In.ar(bus=in_)
+        peak = Amplitude.ar(source=source).amplitude_to_db()
+        rms = (
+            LPF.ar(source=source * source, frequency=10.0)
+            .square_root()
+            .amplitude_to_db()
+        )
+        frequency, is_voiced = Pitch.kr(
+            source=source,
+            min_frequency=pitch_detection_min_frequency,
+            max_frequency=pitch_detection_max_frequency,
+        )
+        pv_chain = FFT(buffer_id=LocalBuf(frame_length), source=source, hop=hop_ratio)
+        is_onset = Onsets.kr(
+            pv_chain=pv_chain,
+            floor=0.000001,
+            relaxtime=0.1,
+            threshold=0.01,
+            odftype=Onsets.ODFType.WPHASE,
+        )
+        centroid = SpecCentroid.kr(pv_chain=pv_chain)
+        flatness = SpecFlatness.kr(pv_chain=pv_chain)
+        rolloff = SpecPcile.kr(pv_chain=pv_chain)
+        mfcc = MFCC.kr(pv_chain=pv_chain, coeff_count=42)
+        phase = Line.ar(
+            start=0,
+            stop=BufFrames.kr(output_buffer_id),
+            duration=duration,
+            done_action=2,
+        )
+        BufWr.kr(
+            buffer_id=output_buffer_id,
+            phase=phase,
+            source=[
+                peak,
+                rms,
+                frequency.hz_to_midi(),
+                is_voiced,
+                is_onset,
+                centroid,
+                flatness,
+                rolloff,
+                *mfcc,
+            ],
+        )
+
+    return analysis
+
+
+def build_online_analysis_synthdef(
     mfcc_count=13,
     pitch_detection_max_frequency=3000.0,
     pitch_detection_min_frequency=60.0,
@@ -46,7 +106,7 @@ def build_analysis_synthdef(
         is_onset = Onsets.kr(
             pv_chain=pv_chain,
             floor=0.000001,
-            # relaxtime=0.1,
+            relaxtime=0.1,
             threshold=0.01,
             odftype=Onsets.ODFType.WPHASE,
         )

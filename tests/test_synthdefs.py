@@ -3,8 +3,8 @@ from uqbar.strings import normalize
 from archon import synthdefs
 
 
-def test_analysis():
-    assert str(synthdefs.build_analysis_synthdef()) == normalize(
+def test_build_online_analysis_synthdef():
+    assert str(synthdefs.build_online_analysis_synthdef()) == normalize(
         """
         synthdef:
             name: analysis
@@ -59,7 +59,7 @@ def test_analysis():
                     pv_chain: FFT.kr[0]
                     threshold: 0.01
                     odftype: 5.0
-                    relaxtime: 1.0
+                    relaxtime: 0.1
                     floor: 1.0e-06
                     mingap: 10.0
                     medianspan: 11.0

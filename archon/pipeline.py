@@ -8,15 +8,15 @@ import sys
 import tempfile
 import traceback
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import librosa
 import numpy
 from joblib import Parallel, delayed
-from supriya import Session, synthdef
-from supriya.ugens import FFT, MFCC, BufFrames, BufWr, In, Line, LocalBuf
+from supriya import Session
 
 from .config import ArchonConfig
+from .synthdefs import build_offline_analysis_synthdef
 from .utils import timer
 
 logger = logging.getLogger(__name__)
@@ -29,19 +29,28 @@ class Analysis:
     """
 
     path: Path
-    sample_count: int
-    sample_rate: int
+    array: numpy.ndarray
     frame_length: int  # frame here is a spectral frame
-    frame_count: int  # frame here is a spectral frame
     hop_length: int
-    window_length: int
-    centroid: numpy.ndarray
-    f0: numpy.ndarray
-    flatness: numpy.ndarray
-    is_voiced: numpy.ndarray
-    mfcc: numpy.ndarray
-    rms: numpy.ndarray
-    rolloff: numpy.ndarray
+    sample_rate: int
+
+    @property
+    def features(self):
+        return {
+            "centroid": self.array[5],
+            "f0": self.array[2],
+            "flatness": self.array[6],
+            "is_onset": self.array[4],
+            "is_voiced": self.array[3],
+            "mfcc": self.array[8:],
+            "peak": self.array[0],
+            "rms": self.array[1],
+            "rolloff": self.array[7],
+        }
+
+    @property
+    def frame_count(self):
+        return self.array.shape[-1]
 
 
 @dataclasses.dataclass
@@ -65,15 +74,27 @@ class Partition:
     rolloff: float
 
 
+def describe_audio(path: Path) -> Tuple[int, float, int]:
+    sample_rate = librosa.get_samplerate(path)
+    duration = librosa.get_duration(filename=path)
+    stream = librosa.stream(
+        path, block_length=1, frame_length=1024, hop_length=256, mono=False
+    )
+    if len(shape := next(stream).shape) == 1:
+        channel_count = 1
+    else:
+        channel_count = shape[0]
+    return sample_rate, duration, channel_count
+
+
 def analyze(
     config: ArchonConfig,
     path: Path,
     path_index: int = 1,
     path_count: int = 1,
     setup_logging: bool = False,
-    frame_length: int = 4096,
-    hop_length: int = 512,
-    window_length=2048,
+    frame_length: int = 2048,
+    hop_ratio: float = 0.5,
 ) -> Optional[Analysis]:
     """
     Analyze a single file.
@@ -83,118 +104,29 @@ def analyze(
         logging.getLogger("archon").setLevel(logging.INFO)
     relative_path = path.relative_to(config.root_path)
     logger.info(f"[{path_index: >3}/{path_count: >3}] Analyzing {relative_path} ...")
-    sr = librosa.get_samplerate(path)
-    adjusted_frame_length = frame_length * (sr // 44100)
-    adjusted_hop_length = hop_length * (sr // 44100)
-    adjusted_window_length = window_length * (sr // 44100)
-    block_length = 1024
+    sample_rate, duration, _ = describe_audio(path)
+    logger.info
     try:
-        block_count = len(
-            [
-                None
-                for _ in librosa.stream(
-                    path,
-                    mono=True,
-                    frame_length=adjusted_frame_length,
-                    hop_length=adjusted_hop_length,
-                    block_length=block_length,
-                )
-            ]
-        )
-        analyses: Dict[str, List[numpy.ndarray]] = {
-            "centroid": [],
-            "f0": [],
-            "flatness": [],
-            "is_voiced": [],
-            "rms": [],
-            "rolloff": [],
-        }
         with timer() as t:
-            with timer() as tsc:
-                mfcc = analyze_mfcc(
-                    config.root_path / path, hop_length=adjusted_hop_length
-                )
-                logger.info(
-                    f"[{path_index: >3}/{path_count: >3}] ... "
-                    f"Analyzed {relative_path} MFCC ({mfcc.shape}) in {tsc():.3f} seconds"
-                )
-            for block_index, y in enumerate(
-                librosa.stream(
-                    path,
-                    mono=True,
-                    frame_length=adjusted_frame_length,
-                    hop_length=adjusted_hop_length,
-                    block_length=block_length,
-                ),
-                1,
-            ):
-                with timer() as tb:
-                    stft = librosa.stft(
-                        y=y,
-                        n_fft=adjusted_frame_length,
-                        hop_length=adjusted_hop_length,
-                        win_length=adjusted_window_length,
-                    )
-                    S, _ = librosa.magphase(stft)
-                    analyses["centroid"].append(
-                        numpy.squeeze(librosa.feature.spectral_centroid(S=S, sr=sr))
-                    )
-                    analyses["flatness"].append(
-                        numpy.squeeze(librosa.feature.spectral_flatness(S=S))
-                    )
-                    analyses["rms"].append(
-                        numpy.squeeze(
-                            librosa.power_to_db(
-                                librosa.feature.rms(
-                                    S=S, frame_length=adjusted_frame_length
-                                )
-                            )
-                        )
-                    )
-                    analyses["rolloff"].append(
-                        numpy.squeeze(librosa.feature.spectral_rolloff(S=S, sr=sr))
-                    )
-                    f0, is_voiced, _ = librosa.pyin(
-                        y=y,
-                        fmin=config.pitch_detection_min_frequency,
-                        fmax=config.pitch_detection_max_frequency,
-                        sr=sr,
-                        frame_length=adjusted_frame_length,
-                        hop_length=adjusted_hop_length,
-                    )
-                    analyses["f0"].append(numpy.squeeze(f0))
-                    analyses["is_voiced"].append(numpy.squeeze(is_voiced))
-                    logger.info(
-                        f"[{path_index: >3}/{path_count: >3}] "
-                        f"[{block_index: >3}/{block_count: >3}] "
-                        f"Analyzed {relative_path} ({f0.shape}) in {tb():.3f} seconds"
-                    )
-        centroid = numpy.concatenate(analyses["centroid"])
-        f0 = numpy.concatenate(analyses["f0"])
-        flatness = numpy.concatenate(analyses["flatness"])
-        is_voiced = numpy.concatenate(analyses["is_voiced"])
-        rms = numpy.concatenate(analyses["rms"])
-        rolloff = numpy.concatenate(analyses["rolloff"])
-        logger.info(
-            f"[{path_index: >3}/{path_count: >3}] ... "
-            f"Finished analyzing {relative_path} ({f0.shape}) in {t():.3f} total seconds"
-        )
-        analysis = Analysis(
-            centroid=centroid,
-            f0=f0,
-            flatness=flatness,
-            frame_count=f0.shape[0],
-            frame_length=adjusted_frame_length,
-            hop_length=adjusted_hop_length,
-            is_voiced=is_voiced,
-            mfcc=mfcc,
-            path=relative_path,
-            rms=rms,
-            rolloff=rolloff,
-            sample_count=y.shape[0],
-            sample_rate=sr,
-            window_length=adjusted_window_length,
-        )
+            array, adjusted_frame_length = analyze_via_nrt(
+                config=config,
+                path=config.root_path / path,
+                frame_length=frame_length,
+                hop_ratio=hop_ratio,
+            )
+            # What if Analysis just has a reference to the original ndarray
+            # and provides properties to index the correct bits
+            analysis = Analysis(
+                path=relative_path,
+                array=array.copy(order="F"),
+                frame_length=adjusted_frame_length,
+                hop_length=int(adjusted_frame_length * hop_ratio),
+                sample_rate=sample_rate,
+            )
+            logger.info(
+                f"[{path_index: >3}/{path_count: >3}] ... "
+                f"Analyzed {relative_path} in {t():.3f} seconds"
+            )
         return analysis
     except Exception:
         logger.warning(f"[{path_index: >3}/{path_count: >3}] {relative_path} failed!")
@@ -202,60 +134,55 @@ def analyze(
         return None
 
 
-def analyze_mfcc(path: Path, hop_length=512) -> numpy.ndarray:
-    @synthdef()
-    def mfcc_synthdef(in_, output_buffer_id=0, duration=0):
-        source = In.ar(bus=in_)
-        chain = FFT(LocalBuf(2048), source)
-        # Analyze all possible MFCC coeffs, can query against a subset
-        mfcc = MFCC.kr(pv_chain=chain, coeff_count=42)
-        phase = Line.ar(
-            start=0,
-            stop=BufFrames.kr(output_buffer_id),
-            duration=duration,
-            done_action=2,
-        )
-        BufWr.kr(buffer_id=output_buffer_id, phase=phase, source=mfcc)
-
-    duration = librosa.get_duration(filename=path)
-    sample_rate = librosa.get_samplerate(path)
-    stream = librosa.stream(
-        path, block_length=1, frame_length=1024, hop_length=256, mono=False
-    )
-    if len(shape := next(stream).shape) == 1:
-        channel_count = 1
-    else:
-        channel_count = shape[0]
-
+def analyze_via_nrt(
+    config: ArchonConfig,
+    path: Path,
+    *,
+    frame_length: int = 2048,
+    hop_ratio: float = 0.5,
+) -> Tuple[numpy.ndarray, int]:
+    sample_rate, duration, channel_count = describe_audio(path)
+    adjusted_frame_length = frame_length * (sample_rate // 44100)
+    hop_length = adjusted_frame_length * hop_ratio
     frame_count = int(duration * sample_rate / hop_length)
-
+    analysis_duration = frame_count * hop_length / sample_rate
+    logger.debug(
+        f"sr={sample_rate} d={duration} c={channel_count} "
+        f"fl={adjusted_frame_length} hl={hop_length} fc={frame_count}"
+    )
+    synthdef = build_offline_analysis_synthdef(
+        frame_length=adjusted_frame_length,
+        hop_ratio=hop_ratio,
+        pitch_detection_max_frequency=config.pitch_detection_max_frequency,
+        pitch_detection_min_frequency=config.pitch_detection_min_frequency,
+    )
     with tempfile.TemporaryDirectory() as temp_directory:
-        logger.info(f"Rendering MFCC analysis in {temp_directory}")
-        output_path = Path(temp_directory) / "mfcc.wav"
+        logger.info(f"Rendering analysis in {temp_directory}")
+        output_path = Path(temp_directory) / "analysis.wav"
         session = Session(
-            input_=path,
+            input_=path.resolve(),
             input_bus_channel_count=channel_count,
             output_bus_channel_count=1,  # can't currently just write to /dev/null
         )
         with session.at(0):
             output_buffer = session.add_buffer(
-                channel_count=42, frame_count=frame_count
+                channel_count=42 + 8, frame_count=frame_count
             )
             session.add_synth(
-                synthdef=mfcc_synthdef,
+                synthdef=synthdef,
                 in_=session.audio_input_bus_group,
                 output_buffer_id=output_buffer,
-                duration=duration,
+                duration=analysis_duration,
             )
-        with session.at(duration):
+        with session.at(analysis_duration):
             output_buffer.write(
                 file_path=output_path, header_format="WAV", sample_format="FLOAT"
             )
         session.render(render_directory_path=temp_directory, sample_rate=sample_rate)
-        y, _ = librosa.load(
+        analysis, _ = librosa.load(
             output_path, sr=librosa.get_samplerate(output_path), mono=False
         )
-    return y
+    return analysis, adjusted_frame_length
 
 
 def partition(
@@ -274,18 +201,19 @@ def partition(
             if stop_index > analysis.frame_count:  # bail on final incomplete partition
                 break
             # grab subsets
-            centroid = analysis.centroid[start_index:stop_index]
-            is_voiced = analysis.is_voiced[start_index:stop_index]
-            f0 = analysis.f0[start_index:stop_index]
-            flatness = analysis.flatness[start_index:stop_index]
-            mfcc = analysis.mfcc.T[start_index:stop_index]
-            rms = analysis.rms[start_index:stop_index]
-            rolloff = analysis.rolloff[start_index:stop_index]
+            features = analysis.features
+            centroid = features["centroid"][start_index:stop_index]
+            is_voiced = features["is_voiced"][start_index:stop_index]
+            f0 = features["f0"][start_index:stop_index]
+            flatness = features["flatness"][start_index:stop_index]
+            mfcc = features["mfcc"].T[start_index:stop_index]
+            rms = features["rms"][start_index:stop_index]
+            rolloff = features["rolloff"][start_index:stop_index]
             # hash the underlying data
             hasher = hashlib.sha1()
-            for array in (centroid, is_voiced, f0, flatness, mfcc, rms, rolloff):
-                hasher.update(array.data)
+            hasher.update(analysis.array[start_index:stop_index].copy().data)
             digest = hasher.hexdigest()
+            # compute f0 for pitched partitions only
             computed_f0 = -1.0
             if computed_is_voiced := numpy.median(is_voiced):
                 computed_f0 = float(
@@ -345,7 +273,7 @@ def run(config: ArchonConfig):
         for analysis in analyses:
 
             for key in ("centroid", "f0", "flatness", "rms", "rolloff"):
-                feature = getattr(analysis, key)
+                feature = analysis.features[key]
                 if key == "f0":
                     feature = librosa.hz_to_midi(feature[~numpy.isnan(feature)])
                 minimum = float(numpy.min(feature))
