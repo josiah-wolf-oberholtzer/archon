@@ -1,7 +1,6 @@
 import argparse
 from pathlib import Path
 
-from . import harness, pipeline
 from .config import ArchonConfig
 
 
@@ -59,10 +58,16 @@ def main(args=None):
     if not any([config.use_pitch, config.use_spectral, config.use_mfcc]):
         raise ValueError
     if parsed_args.command == "run-pipeline":
+        from . import pipeline
+
         pipeline.run(config)
     if parsed_args.command == "validate-analysis":
+        from . import pipeline
+
         pipeline.validate(config)
     if parsed_args.command == "run-harness":
+        from . import harness
+
         config.history_size = parsed_args.history_size
         config.mfcc_count = parsed_args.mfcc_count
         config.use_mfcc = parsed_args.use_mfcc

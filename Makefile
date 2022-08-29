@@ -2,6 +2,7 @@ clean:
 	find . -name '*.__pycache__' | xargs rm -Rf
 	find . -name '*.egg-info' | xargs rm -Rf
 	find . -name '*.pyc' | xargs rm -Rf
+	find . -name '*cache' | xargs rm -Rf
 
 black-check: ## Check syntax via black
 	black --check --diff .

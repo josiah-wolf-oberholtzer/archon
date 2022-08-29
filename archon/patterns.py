@@ -4,7 +4,7 @@ from typing import List
 from supriya.patterns import ChoicePattern, EventPattern, Pattern, RandomPattern
 from supriya.providers import BufferProxy
 
-from .ephemera import AnalysisTarget, PatternFlavor
+from .analysis import AnalysisTarget, PatternFlavor
 from .synthdefs import playback
 
 
@@ -26,9 +26,9 @@ class PatternFactory:
             buffer_id=ChoicePattern(
                 sequence=buffers,
                 forbid_repetitions=True,
-                iterations=random.randint(1, 25),
+                iterations=random.randint(5, 25),
             ),
-            delta=RandomPattern(0.0, 1.0),
+            delta=RandomPattern(0.0, 0.25),
             duration=0.0,
             gain=RandomPattern(-24, 0),
             panning=RandomPattern(-1.0, 1.0),

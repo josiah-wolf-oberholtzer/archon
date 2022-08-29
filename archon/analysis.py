@@ -1,9 +1,28 @@
+import dataclasses
+from enum import Enum
 from typing import List, Optional, Tuple
 
 import numpy
 
 from .config import ArchonConfig
-from .ephemera import AnalysisTarget, PatternFlavor
+
+
+class PatternFlavor(Enum):
+    BASIC = "b"
+
+
+@dataclasses.dataclass
+class AnalysisTarget:
+    pattern_flavor: PatternFlavor
+    peak: float
+    rms: float
+    f0: float
+    is_onset: float
+    centroid: float
+    flatness: float
+    rolloff: float
+    mfcc: List[float]
+    k: int
 
 
 class AnalysisEngine:
@@ -55,17 +74,19 @@ class AnalysisEngine:
         min_sleep, max_sleep = 0.0, 1.0
         if self.index < self.config.history_size:
             return None, min_sleep, max_sleep
+        f0 = -1.0
+        if numpy.median(self.is_voiced):
+            f0 = self.f0[self.is_voiced].mean()
         analysis_target = AnalysisTarget(
             pattern_flavor=PatternFlavor.BASIC,
+            k=25,
             peak=float(self.peak.mean()),
             rms=float(self.rms.mean()),
-            f0=float(self.f0.mean()),
-            is_voiced=bool(self.is_voiced.mean()),
-            is_onset=bool(self.is_onset.mean()),
+            f0=float(f0),
+            is_onset=float(self.is_onset.mean()),
             centroid=float(self.centroid.mean()),
             flatness=float(self.flatness.mean()),
             rolloff=float(self.rolloff.mean()),
             mfcc=self.mfcc.mean(axis=0).tolist(),
-            k=25,
         )
         return analysis_target, min_sleep, max_sleep

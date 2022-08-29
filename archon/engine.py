@@ -10,10 +10,9 @@ from supriya.patterns import Event, NoteEvent, PatternPlayer, Priority, StopEven
 from supriya.providers import OscCallbackProxy, Provider
 from supriya.realtime import AsyncServer
 
-from .analysis import AnalysisEngine
+from .analysis import AnalysisEngine, AnalysisTarget
 from .buffers import BufferManager
 from .config import ArchonConfig
-from .ephemera import AnalysisTarget
 from .patterns import PatternFactory
 from .query import Database
 from .synthdefs import build_online_analysis_synthdef
@@ -178,7 +177,7 @@ class Engine:
         )
 
     async def on_n_end_osc_message(self, osc_message: OscMessage):
-        logger.info(f"/n_end received: {osc_message!r}")
+        logger.debug(f"/n_end received: {osc_message!r}")
         node_id = osc_message.contents[0]
         async with self.provider.at():
             self.buffer_manager.decrement(node_id)
@@ -193,11 +192,11 @@ class Engine:
         if isinstance(event, NoteEvent) and priority == Priority.START:
             node_id = int(player._proxies_by_uuid[event.id_])
             buffer_id = event.kwargs.get("buffer_id")
-            logger.info(f"Playing note: {node_id} w/ {int(buffer_id)}")
+            logger.debug(f"Playing note: {node_id} w/ {int(buffer_id)}")
             if buffer_id is not None:
                 self.buffer_manager.increment(buffer_id, node_id)
         elif isinstance(event, StopEvent):
-            logger.info(f"Pattern stopped: {player.uuid}")
+            logger.debug(f"Pattern stopped: {player.uuid}")
             async with self.provider.at():
                 self.buffer_manager.decrement(player.uuid)
             self.pattern_players.pop(player.uuid)
@@ -206,7 +205,7 @@ class Engine:
     async def poll_analysis_engine(self) -> None:
         logger.info("Starting new analysis engine poller ...")
         while self.is_running:
-            logger.info(f"{self.server.status}")
+            logger.debug(f"{self.server.status}")
             logger.info("Polling analysis engine ...")
             analysis_target, min_sleep, max_sleep = self.analysis_engine.emit()
             # check if polyphony has capacity

@@ -113,12 +113,13 @@ def analyze(
                 path=config.root_path / path,
                 frame_length=frame_length,
                 hop_ratio=hop_ratio,
+                path_index=path_index,
+                path_count=path_count,
             )
-            # What if Analysis just has a reference to the original ndarray
-            # and provides properties to index the correct bits
+            assert array.shape[0] == 50, array.shape
             analysis = Analysis(
                 path=relative_path,
-                array=array.copy(order="F"),
+                array=array,
                 frame_length=adjusted_frame_length,
                 hop_length=int(adjusted_frame_length * hop_ratio),
                 sample_rate=sample_rate,
@@ -140,16 +141,14 @@ def analyze_via_nrt(
     *,
     frame_length: int = 2048,
     hop_ratio: float = 0.5,
+    path_index: int = 1,
+    path_count: int = 1,
 ) -> Tuple[numpy.ndarray, int]:
     sample_rate, duration, channel_count = describe_audio(path)
     adjusted_frame_length = frame_length * (sample_rate // 44100)
     hop_length = adjusted_frame_length * hop_ratio
     frame_count = int(duration * sample_rate / hop_length)
     analysis_duration = frame_count * hop_length / sample_rate
-    logger.debug(
-        f"sr={sample_rate} d={duration} c={channel_count} "
-        f"fl={adjusted_frame_length} hl={hop_length} fc={frame_count}"
-    )
     synthdef = build_offline_analysis_synthdef(
         frame_length=adjusted_frame_length,
         hop_ratio=hop_ratio,
@@ -157,7 +156,10 @@ def analyze_via_nrt(
         pitch_detection_min_frequency=config.pitch_detection_min_frequency,
     )
     with tempfile.TemporaryDirectory() as temp_directory:
-        logger.info(f"Rendering analysis in {temp_directory}")
+        logger.info(
+            f"[{path_index: >3}/{path_count: >3}] "
+            f"... Rendering analysis in {temp_directory} ..."
+        )
         output_path = Path(temp_directory) / "analysis.wav"
         session = Session(
             input_=path.resolve(),
@@ -179,14 +181,17 @@ def analyze_via_nrt(
                 file_path=output_path, header_format="WAV", sample_format="FLOAT"
             )
         session.render(render_directory_path=temp_directory, sample_rate=sample_rate)
-        analysis, _ = librosa.load(
-            output_path, sr=librosa.get_samplerate(output_path), mono=False
-        )
+        analysis, _ = librosa.load(output_path, sr=sample_rate, mono=False)
     return analysis, adjusted_frame_length
 
 
+def hash_array(array):
+    u = array.view("u" + str(array.itemsize))
+    return numpy.bitwise_xor.reduce(u.ravel())
+
+
 def partition(
-    analysis: Analysis, partition_size_in_ms=1000, partition_hop_in_ms=500
+    analysis: Analysis, partition_size_in_ms=500, partition_hop_in_ms=250
 ) -> List[Partition]:
     """
     Partition an analysis.
@@ -196,10 +201,14 @@ def partition(
         indices_per_partition = math.ceil(partition_size_in_ms / hop_length_in_ms)
         indices_per_partition_hop = math.ceil(partition_hop_in_ms / hop_length_in_ms)
         partitions = []
-        for start_index in range(0, analysis.frame_count, indices_per_partition_hop):
+        digests = set()
+        for i, start_index in enumerate(
+            range(0, analysis.frame_count, indices_per_partition_hop)
+        ):
             stop_index = start_index + indices_per_partition
             if stop_index > analysis.frame_count:  # bail on final incomplete partition
                 break
+
             # grab subsets
             features = analysis.features
             centroid = features["centroid"][start_index:stop_index]
@@ -209,32 +218,41 @@ def partition(
             mfcc = features["mfcc"].T[start_index:stop_index]
             rms = features["rms"][start_index:stop_index]
             rolloff = features["rolloff"][start_index:stop_index]
-            # hash the underlying data
-            hasher = hashlib.sha1()
-            hasher.update(analysis.array[start_index:stop_index].copy().data)
-            digest = hasher.hexdigest()
+
             # compute f0 for pitched partitions only
             computed_f0 = -1.0
-            if computed_is_voiced := numpy.median(is_voiced):
-                computed_f0 = float(
-                    librosa.hz_to_midi(numpy.median(f0[~numpy.isnan(f0)]))
-                )
-            # yield the partition
+            if computed_is_voiced := bool(numpy.median(is_voiced)):
+                computed_f0 = f0[numpy.array(is_voiced, dtype=numpy.bool_)].mean()
+
+            # hash the underlying data
+            slice_ = numpy.empty((50, indices_per_partition))
+            slice_[:] = analysis.array[..., start_index:stop_index]
+            hasher = hashlib.sha1()
+            hasher.update(slice_.data)
+            digest = hasher.hexdigest()
+            digests.add(digest)
+
             partition = Partition(
                 path=str(analysis.path),
                 digest=digest,
                 start_frame=start_index * analysis.hop_length,
                 frame_count=(stop_index - start_index) * analysis.hop_length,
-                centroid=float(numpy.median(centroid)),
-                f0=computed_f0,
-                flatness=float(numpy.median(flatness)),
-                is_voiced=bool(computed_is_voiced),
-                mfcc=numpy.median(mfcc, axis=0).tolist(),
-                rms=float(numpy.median(rms)),
-                rolloff=float(numpy.median(rolloff)),
+                centroid=float(numpy.mean(centroid)),
+                f0=float(computed_f0),
+                flatness=float(numpy.mean(flatness)),
+                is_voiced=computed_is_voiced,
+                mfcc=numpy.mean(mfcc, axis=0).tolist(),
+                rms=float(numpy.mean(rms)),
+                rolloff=float(numpy.mean(rolloff)),
             )
             partitions.append(partition)
-        logger.info(f"Partitioned {analysis.path} in {t():.4f} seconds")
+
+        logger.info(
+            f"Partitioned {analysis.path} "
+            f"(ip={indices_per_partition}) (ih={indices_per_partition_hop})"
+            f"(n={len(partitions)}) (d={len(digests)}) "
+            f"in {t():.4f} seconds"
+        )
     return partitions
 
 
@@ -275,7 +293,7 @@ def run(config: ArchonConfig):
             for key in ("centroid", "f0", "flatness", "rms", "rolloff"):
                 feature = analysis.features[key]
                 if key == "f0":
-                    feature = librosa.hz_to_midi(feature[~numpy.isnan(feature)])
+                    feature = feature[~numpy.isnan(feature)]
                 minimum = float(numpy.min(feature))
                 maximum = float(numpy.max(feature))
                 sum_ = float(numpy.sum(feature))
@@ -310,7 +328,8 @@ def run(config: ArchonConfig):
         }
         config.analysis_path.write_text(json.dumps(data, sort_keys=True, indent=2))
         logger.info(
-            f"Pipeline finished analyzing {total_source_time:.3f} seconds of audio "
+            f"Pipeline finished analyzing (n={len(partitions)}) "
+            f"{total_source_time:.3f} seconds of audio "
             f"in {t():.3f} seconds"
         )
 

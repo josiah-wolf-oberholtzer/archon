@@ -7,8 +7,8 @@ from typing import List, Tuple
 import numpy
 from scipy.spatial import KDTree
 
+from .analysis import AnalysisTarget
 from .config import ArchonConfig
-from .ephemera import AnalysisTarget
 from .utils import timer
 
 logger = logging.getLogger(__name__)
@@ -40,9 +40,8 @@ class RangeSet:
     def scale(self, value: float, range_: Range) -> float:
         return (value - range_.minimum) / (range_.maximum - range_.minimum)
 
-    def transform(self, *, centroid, f0, flatness, is_voiced, rms, rolloff):
+    def transform(self, *, centroid, flatness, rms, rolloff):
         return (
-            self.scale(f0, self.f0) if is_voiced else -1.0,
             self.scale(centroid, self.centroid),
             self.scale(flatness, self.flatness),
             self.scale(rms, self.rms),
@@ -69,30 +68,19 @@ class Database:
         centroid: float,
         f0: float,
         flatness: float,
-        is_voiced: bool,
         mfcc: List[float],
         rms: float,
         rolloff: float,
     ):
-        (
-            _,
-            scaled_centroid,
-            scaled_flatness,
-            scaled_rms,
-            scaled_rolloff,
-        ) = range_set.transform(
-            centroid=centroid,
-            f0=f0,
-            flatness=flatness,
-            is_voiced=is_voiced,
-            rms=rms,
-            rolloff=rolloff,
-        )
         point = []
         if use_pitch:
-            point.append(f0 if is_voiced else -1.0)
+            point.append(f0)
         if use_spectral:
-            point.extend([scaled_centroid, scaled_flatness, scaled_rms, scaled_rolloff])
+            point.extend(
+                range_set.transform(
+                    centroid=centroid, flatness=flatness, rms=rms, rolloff=rolloff
+                )
+            )
         if use_mfcc:
             mfcc_slice = mfcc[:mfcc_count]
             point.extend(mfcc_slice)
@@ -131,7 +119,6 @@ class Database:
                         centroid=partition["centroid"],
                         f0=partition["f0"],
                         flatness=partition["flatness"],
-                        is_voiced=partition["is_voiced"],
                         mfcc=partition["mfcc"],
                         rms=partition["rms"],
                         rolloff=partition["rolloff"],
@@ -157,7 +144,6 @@ class Database:
         centroid: float,
         f0: float,
         flatness: float,
-        is_voiced: bool,
         mfcc: List[float],
         rms: float,
         rolloff: float,
@@ -172,7 +158,6 @@ class Database:
             centroid=centroid,
             f0=f0,
             flatness=flatness,
-            is_voiced=is_voiced,
             mfcc=mfcc,
             rms=rms,
             rolloff=rolloff,
@@ -198,7 +183,6 @@ class Database:
                 centroid=analysis_target.centroid,
                 f0=analysis_target.f0,
                 flatness=analysis_target.flatness,
-                is_voiced=analysis_target.is_voiced,
                 mfcc=analysis_target.mfcc,
                 rms=analysis_target.rms,
                 rolloff=analysis_target.rolloff,

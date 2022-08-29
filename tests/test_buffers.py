@@ -61,7 +61,6 @@ def test_BufferManager(archon_config):
             centroid=partition["centroid"],
             f0=partition["f0"],
             flatness=partition["flatness"],
-            is_voiced=partition["is_voiced"],
             mfcc=partition["mfcc"],
             rms=partition["rms"],
             rolloff=partition["rolloff"],

@@ -10,7 +10,11 @@ from archon.config import ArchonConfig
 
 @pytest.mark.parametrize(
     "filename, expected_shape",
-    [("audio-a.wav", (50, 689)), ("audio-b.wav", (50, 689)), ("audio-c.wav", (50, 750))],
+    [
+        ("audio-a.wav", (50, 689)),
+        ("audio-b.wav", (50, 689)),
+        ("audio-c.wav", (50, 750)),
+    ],
 )
 def test_analyze(archon_config, filename, expected_shape, caplog):
     caplog.set_level(logging.INFO)
