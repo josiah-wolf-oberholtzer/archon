@@ -8,6 +8,11 @@ on:
     branches:
     - main
 
+env:
+  MYPYPATH: /tmp/typehints
+  SC_ORIGIN: https://github.com/supercollider/supercollider.git
+  SC_BRANCH: develop
+
 jobs:
 
   cancel:
@@ -28,11 +33,13 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: "3.10"
     - name: Install Python requirements
       run: pip install -r requirements.txt
     - name: Install Archon
       run: pip install -e .
+    - name: Get Type Hints
+      run: pip install --target /tmp/typehints --no-deps supriya
     - name: Black
       run: make black-check
     - name: Flake8
@@ -49,12 +56,17 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: "3.10"
     - name: Install APT packages
       run: sudo apt-get install -y libsndfile1
     - name: Install Python requirements
       run: pip install -r requirements.txt
     - name: Install Archon
       run: pip install -e .
+    - name: Install SuperCollider
+      uses: ./.github/actions/supercollider
+      with:
+        branch: ${{ env.SC_BRANCH }}
+        origin: ${{ env.SC_ORIGIN }}
     - name: Test
       run: make pytest
