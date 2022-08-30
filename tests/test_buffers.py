@@ -22,7 +22,7 @@ def format_manager(manager, cache):
             if value not in cache.setdefault("uuids", []):
                 cache["uuids"].append(value)
             return f"uuid:{chr(cache['uuids'].index(value) + 97)}"
-        elif isinstance(value, str) and len(value) == 40:
+        elif isinstance(value, str) and len(value) == 64:
             if value not in cache.setdefault("digests", []):
                 cache["digests"].append(value)
             return f"sha:{chr(cache['digests'].index(value) + 97)}"

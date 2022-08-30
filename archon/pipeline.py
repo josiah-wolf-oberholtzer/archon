@@ -224,28 +224,31 @@ def partition(
             if computed_is_voiced := bool(numpy.median(is_voiced)):
                 computed_f0 = f0[numpy.array(is_voiced, dtype=numpy.bool_)].mean()
 
-            # hash the underlying data
-            slice_ = numpy.empty((50, indices_per_partition))
-            slice_[:] = analysis.array[..., start_index:stop_index]
-            hasher = hashlib.sha1()
-            hasher.update(slice_.data)
-            digest = hasher.hexdigest()
-            digests.add(digest)
-
-            partition = Partition(
-                path=str(analysis.path),
-                digest=digest,
-                start_frame=start_index * analysis.hop_length,
-                frame_count=(stop_index - start_index) * analysis.hop_length,
+            # hash the features to remove duplicates
+            # don't include f0 because it's not 100% deterministic
+            data = dict(
                 centroid=float(numpy.mean(centroid)),
-                f0=float(computed_f0),
                 flatness=float(numpy.mean(flatness)),
                 is_voiced=computed_is_voiced,
                 mfcc=numpy.mean(mfcc, axis=0).tolist(),
                 rms=float(numpy.mean(rms)),
                 rolloff=float(numpy.mean(rolloff)),
             )
-            partitions.append(partition)
+            digest = hashlib.sha256(
+                json.dumps(data, sort_keys=True).encode()
+            ).hexdigest()
+            digests.add(digest)
+
+            partitions.append(
+                Partition(
+                    path=str(analysis.path),
+                    digest=digest,
+                    start_frame=start_index * analysis.hop_length,
+                    frame_count=(stop_index - start_index) * analysis.hop_length,
+                    f0=float(computed_f0),
+                    **data,
+                )
+            )
 
         logger.info(
             f"Partitioned {analysis.path} "
@@ -288,7 +291,7 @@ def run(config: ArchonConfig):
 
         statistics: Dict[str, List[float]] = {}
         partitions = {}
-        for analysis in analyses:
+        for analysis in sorted(analyses, key=lambda x: x.path):
 
             for key in ("centroid", "f0", "flatness", "rms", "rolloff"):
                 feature = analysis.features[key]
