@@ -32,7 +32,20 @@ def test_partition(archon_config, filename):
 
 def test_run(caplog, tmp_path):
     caplog.set_level(logging.INFO)
-    config = ArchonConfig(analysis_path=tmp_path / "analysis.json")
+    analysis_path = tmp_path / "analysis.json"
+    config = ArchonConfig(analysis_path=analysis_path)
     for filename in ["audio-a.wav", "audio-b.wav", "audio-c.wav"]:
         shutil.copy(Path(__file__).parent / filename, tmp_path / filename)
     archon.pipeline.run(config)
+
+
+@pytest.mark.xfail(reason="f0 is not deterministic")
+def test_compare(caplog, tmp_path):
+    caplog.set_level(logging.INFO)
+    analysis_path = tmp_path / "analysis.json"
+    config = ArchonConfig(analysis_path=analysis_path)
+    for filename in ["audio-a.wav", "audio-b.wav", "audio-c.wav"]:
+        shutil.copy(Path(__file__).parent / filename, tmp_path / filename)
+    archon.pipeline.run(config)
+    reference_path = Path(__file__).parent / "analysis.json"
+    assert reference_path.read_text() == analysis_path.read_text()
