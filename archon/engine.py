@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import random
-from typing import Dict, List
+from typing import Dict, List, cast
 from uuid import UUID, uuid4
 
 from supriya.clocks import AsyncClock, ClockContext
@@ -191,7 +191,7 @@ class Engine:
     ):
         if isinstance(event, NoteEvent) and priority == Priority.START:
             node_id = int(player._proxies_by_uuid[event.id_])
-            buffer_id = event.kwargs.get("buffer_id")
+            buffer_id = cast(int, event.kwargs.get("buffer_id"))
             logger.debug(f"Playing note: {node_id} w/ {int(buffer_id)}")
             if buffer_id is not None:
                 self.buffer_manager.increment(buffer_id, node_id)
