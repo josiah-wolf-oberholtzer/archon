@@ -35,13 +35,15 @@ jobs:
       with:
         python-version: "3.10"
     - name: Install Python requirements
-      run: pip install -r requirements.txt
+      run: pip install -e .[test]
     - name: Install mypy from master (need https://github.com/python/mypy/pull/13397)
       run: pip install https://github.com/python/mypy/archive/refs/heads/master.zip
     - name: Install Archon
-      run: pip install -e .
+      run: pip install -e .[test]
     - name: Get Type Hints
-      run: pip install --target /tmp/typehints --no-deps supriya
+      run: |
+        pip install --target /tmp/typehints --no-deps supriya
+        pip install --target /tmp/typehints --no-deps uqbar
     - name: Black
       run: make black-check
     - name: Flake8
@@ -61,10 +63,8 @@ jobs:
         python-version: "3.10"
     - name: Install APT packages
       run: sudo apt-get install -y libsndfile1
-    - name: Install Python requirements
-      run: pip install -r requirements.txt
     - name: Install Archon
-      run: pip install -e .
+      run: pip install -e .[test]
     - name: Install SuperCollider
       uses: ./.github/actions/supercollider
       with:

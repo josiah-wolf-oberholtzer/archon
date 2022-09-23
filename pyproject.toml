@@ -1,3 +1,34 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["Cython", "setuptools>=40.6.0", "wheel"]
+
+[project]
+authors = [
+  {name = "Josiah Wolf Oberholtzer", email = "josiah.oberholtzer@gmail.com"}
+]
+dependencies = [
+  "librosa",
+  "prompt_toolkit",
+  "supriya >= 22.9b0",
+]
+license = {text = "MIT"}
+name = "archon"
+readme = "README.md"
+requires-python = ">=3.7"
+version = "22.9b0"
+
+[project.optional-dependencies]
+test = [
+  "black[jupyter]",
+  "flake8",
+  "isort",
+  "mypy",
+  "pytest",
+  "pytest-asyncio",
+  "pytest-cov",
+  "types-PyYAML",
+]
+
 [tool.black]
 skip-magic-trailing-comma = true
 target-version = ["py310"]
@@ -8,6 +39,12 @@ profile = "black"
 
 [tool.mypy]
 ignore_missing_imports = true
+plugins = [
+    "supriya.ext.mypy",
+]
 
 [tool.pytest.ini_options]
 addopts = "-vv --durations=10 --cov=archon --cov-branch"
+
+[tool.setuptools]
+packages = ["archon"]

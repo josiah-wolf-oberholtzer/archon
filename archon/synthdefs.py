@@ -4,15 +4,22 @@ from supriya.ugens import (  # RMS,
     FFT,
     LPF,
     MFCC,
+    AllpassL,
     Amplitude,
     BufFrames,
     BufRateScale,
     BufWr,
+    CombL,
+    DelayN,
     EnvGen,
+    ExpRand,
     Impulse,
     In,
+    LFNoise1,
+    LeakDC,
     Line,
     LocalBuf,
+    Mix,
     Onsets,
     Out,
     Pan2,
@@ -22,6 +29,7 @@ from supriya.ugens import (  # RMS,
     SpecCentroid,
     SpecFlatness,
     SpecPcile,
+    XOut,
 )
 
 
@@ -184,5 +192,39 @@ def freezeverb(in_=0, out=0):
 
 
 @synthdef()
-def hdverb(in_=0, out=0):
-    pass
+def hdverb(in_=0, out=0, decay=3.5, mix=0.08, lpf1=2000, lpf2=6000, predelay=0.025):
+    comb_count = 16 // 2
+    allpass_count = 8
+    source = In.ar(bus=in_, channel_count=2)
+    source = DelayN.ar(
+        source=source, maximum_delay_time=0.5, delay_time=predelay.clip(0.0001, 0.5)
+    )
+    source = (
+        Mix.new(
+            LPF.ar(
+                source=CombL.ar(
+                    source=source,
+                    maximum_delay_time=0.1,
+                    delay_time=LFNoise1.kr(
+                        frequency=[ExpRand.ir(0.02, 0.04) for _ in range(2)]
+                    ).exponential_range(0.02, 0.099),
+                    decay_time=decay,
+                ),
+                frequency=lpf1,
+            )
+            for _ in range(comb_count)
+        )
+        * 0.25
+    )
+    for _ in range(allpass_count):
+        source = AllpassL.ar(
+            source=source,
+            maximum_delay_time=0.1,
+            delay_time=LFNoise1.kr(
+                frequency=[ExpRand.ir(0.02, 0.04) for _ in range(2)]
+            ).exponential_range(0.02, 0.099),
+            decay_time=decay,
+        )
+    source = LeakDC.ar(source=source)
+    source = LPF.ar(source=source, frequency=lpf2) * 0.5
+    XOut.ar(bus=out, source=source, crossfade=mix)
