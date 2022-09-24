@@ -53,7 +53,9 @@ def build_offline_analysis_synthdef(
             min_frequency=pitch_detection_min_frequency,
             max_frequency=pitch_detection_max_frequency,
         )
-        pv_chain = FFT.kr(buffer_id=LocalBuf(frame_length), source=source, hop=hop_ratio)
+        pv_chain = FFT.kr(
+            buffer_id=LocalBuf(frame_length), source=source, hop=hop_ratio
+        )
         is_onset = Onsets.kr(
             pv_chain=pv_chain,
             floor=0.000001,
@@ -206,7 +208,9 @@ def hdverb(in_=0, out=0, decay=3.5, mix=0.08, lpf1=2000, lpf2=6000, predelay=0.0
                     source=source,
                     maximum_delay_time=0.1,
                     delay_time=LFNoise1.kr(
-                        frequency=[ExpRand.ir(minimum=0.02, maximum=0.04) for _ in range(2)]
+                        frequency=[
+                            ExpRand.ir(minimum=0.02, maximum=0.04) for _ in range(2)
+                        ]
                     ).exponential_range(0.02, 0.099),
                     decay_time=decay,
                 ),

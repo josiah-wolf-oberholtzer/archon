@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from supriya.clocks import AsyncClock, ClockContext
 from supriya.osc import OscMessage
 from supriya.patterns import Event, NoteEvent, PatternPlayer, Priority, StopEvent
-from supriya.providers import OscCallbackProxy, Provider
+from supriya.providers import BufferProxy, OscCallbackProxy, Provider
 from supriya.realtime import AsyncServer
 
 from .analysis import AnalysisEngine, AnalysisTarget
@@ -191,7 +191,7 @@ class Engine:
     ):
         if isinstance(event, NoteEvent) and priority == Priority.START:
             node_id = int(player._proxies_by_uuid[event.id_])
-            buffer_id = cast(int, event.kwargs.get("buffer_id"))
+            buffer_id = cast(BufferProxy, event.kwargs.get("buffer_id"))
             logger.debug(f"Playing note: {node_id} w/ {int(buffer_id)}")
             if buffer_id is not None:
                 self.buffer_manager.increment(buffer_id, node_id)
