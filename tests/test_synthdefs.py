@@ -81,16 +81,16 @@ def test_build_online_analysis_synthdef():
             -   SendReply.kr:
                     trigger: Impulse.kr[0]
                     reply_id: -1.0
-                    size: 9.0
-                    char[0]: 47.0
-                    char[1]: 97.0
-                    char[2]: 110.0
-                    char[3]: 97.0
-                    char[4]: 108.0
-                    char[5]: 121.0
-                    char[6]: 115.0
-                    char[7]: 105.0
-                    char[8]: 115.0
+                    character_count: 9.0
+                    character[0]: 47.0
+                    character[1]: 97.0
+                    character[2]: 110.0
+                    character[3]: 97.0
+                    character[4]: 108.0
+                    character[5]: 121.0
+                    character[6]: 115.0
+                    character[7]: 105.0
+                    character[8]: 115.0
                     source[0]: UnaryOpUGen(AMPLITUDE_TO_DB).ar/0[0]
                     source[1]: UnaryOpUGen(AMPLITUDE_TO_DB).ar/1[0]
                     source[2]: UnaryOpUGen(HZ_TO_MIDI).kr[0]
