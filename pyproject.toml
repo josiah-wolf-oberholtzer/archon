@@ -9,7 +9,7 @@ authors = [
 dependencies = [
   "librosa",
   "prompt_toolkit",
-  "supriya >= 22.9b0",
+  "supriya >= 22.9b1",
 ]
 license = {text = "MIT"}
 name = "archon"
