@@ -54,7 +54,10 @@ class Engine:
             logger.warning("Server already booted!")
             return
         await self.clock.start()
-        await self.server.boot()
+        await self.server.boot(
+            input_bus_channel_count=self.config.inputs,
+            output_bus_channel_count=self.config.outputs,
+        )
         for address, handler in {
             "/analysis": self.on_analysis_osc_message,
             "/n_end": self.on_n_end_osc_message,
@@ -66,7 +69,7 @@ class Engine:
             )
         async with self.provider.at():
             self.provider.add_synth(
-                in_=self.server.options.output_bus_channel_count,
+                in_=self.config.input_bus,
                 synthdef=build_online_analysis_synthdef(
                     mfcc_count=self.config.mfcc_count,
                     pitch_detection_max_frequency=self.config.pitch_detection_max_frequency,
@@ -138,7 +141,9 @@ class Engine:
         async with self.provider.at():
             buffers = self.buffer_manager.increment_multiple(entries, uuid)
         # Generate the pattern
-        pattern = self.pattern_factory.emit(analysis_target, buffers)
+        pattern = self.pattern_factory.emit(
+            analysis_target, buffers, out=self.config.output_bus
+        )
         # Play it
         self.pattern_players[uuid] = pattern.play(
             callback=self.on_pattern_player_callback,
@@ -146,6 +151,8 @@ class Engine:
             provider=self.provider,
             uuid=uuid,
         )
+        # Save a pattern future so we can track pattern completion,
+        # e.g. for managing graceful shutdown
         self.pattern_futures[uuid] = asyncio.get_running_loop().create_future()
         logger.info(f"Pattern started: {uuid}")
 

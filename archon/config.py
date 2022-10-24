@@ -6,7 +6,11 @@ from pathlib import Path
 class ArchonConfig:
     analysis_path: Path
     history_size: int = 10
+    input_bus: int = 8
+    inputs: int = 8
     mfcc_count: int = 13
+    output_bus: int = 0
+    outputs: int = 8
     pitch_detection_max_frequency: float = 3000.0
     pitch_detection_min_frequency: float = 60.0
     silence_threshold_db: float = -60.0

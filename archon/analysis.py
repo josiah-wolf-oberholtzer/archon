@@ -9,6 +9,7 @@ from .config import ArchonConfig
 
 class PatternFlavor(Enum):
     BASIC = "b"
+    WARP = "w"
 
 
 @dataclasses.dataclass
@@ -78,7 +79,7 @@ class AnalysisEngine:
         if numpy.median(self.is_voiced):
             f0 = self.f0[self.is_voiced].mean()
         analysis_target = AnalysisTarget(
-            pattern_flavor=PatternFlavor.BASIC,
+            pattern_flavor=PatternFlavor.WARP,
             k=25,
             peak=float(self.peak.mean()),
             rms=float(self.rms.mean()),

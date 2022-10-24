@@ -25,10 +25,12 @@ from supriya.ugens import (  # RMS,
     Pan2,
     Pitch,
     PlayBuf,
+    Rand,
     SendReply,
     SpecCentroid,
     SpecFlatness,
     SpecPcile,
+    Warp1,
     XOut,
 )
 
@@ -174,8 +176,22 @@ def granulate(buffer_id=0, out=0):
 
 
 @synthdef()
-def warp(buffer_id=0, out=0):
-    pass
+def warp(buffer_id=0, dur=1, gain=0.0, out=0, overlaps=4, panning=0.0, start=0, stop=1):
+    pointer = Line.kr(start=start, stop=stop, duration=dur)
+    window = Line.kr(duration=dur, done_action=DoneAction.FREE_SYNTH).hanning_window()
+    signal = Warp1.ar(
+        buffer_id=buffer_id,
+        pointer=pointer,
+        overlaps=overlaps,
+        interpolation=4,
+        window_size=LFNoise1.kr(
+            frequency=ExpRand.ir(minimum=0.1, maximum=1.0)
+        ).exponential_range(0.1, 0.5),
+    )
+    signal = Pan2.ar(
+        source=signal * window, position=panning, level=gain.db_to_amplitude()
+    )
+    Out.ar(bus=out, source=signal)
 
 
 @synthdef()

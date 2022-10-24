@@ -43,6 +43,14 @@ def parse_args(args=None):
         default=True,
         help="use spectral features for querying (default: %(default)s)",
     )
+    harness_parser.add_argument("--inputs", type=int, default=8)
+    harness_parser.add_argument("--outputs", type=int, default=8)
+    harness_parser.add_argument(
+        "--input-bus", type=int, default=8, help="bus ID to run analysis against"
+    )
+    harness_parser.add_argument(
+        "--output-bus", type=int, default=0, help="bus ID to output audio to"
+    )
     # run the pipeline
     pipeline_parser = subparsers.add_parser("run-pipeline")
     pipeline_parser.add_argument("path", help="path to analysis JSON", type=Path)
@@ -69,7 +77,11 @@ def main(args=None):
         from . import harness
 
         config.history_size = parsed_args.history_size
+        config.input_bus = parsed_args.input_bus
+        config.inputs = parsed_args.inputs
         config.mfcc_count = parsed_args.mfcc_count
+        config.output_bus = parsed_args.output_bus
+        config.outputs = parsed_args.outputs
         config.use_mfcc = parsed_args.use_mfcc
         config.use_pitch = parsed_args.use_pitch
         config.use_spectral = parsed_args.use_spectral
