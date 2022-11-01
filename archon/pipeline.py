@@ -191,64 +191,67 @@ def hash_array(array):
 
 
 def partition(
-    analysis: Analysis, partition_size_in_ms=500, partition_hop_in_ms=250
+    analysis: Analysis, partition_sizes_in_ms=(500,), partition_hop_in_ms=250
 ) -> List[Partition]:
     """
     Partition an analysis.
     """
     with timer() as t:
         hop_length_in_ms = float(analysis.hop_length) / analysis.sample_rate * 1000
-        indices_per_partition = math.ceil(partition_size_in_ms / hop_length_in_ms)
         indices_per_partition_hop = math.ceil(partition_hop_in_ms / hop_length_in_ms)
         partitions = []
         digests = set()
         for i, start_index in enumerate(
             range(0, analysis.frame_count, indices_per_partition_hop)
         ):
-            stop_index = start_index + indices_per_partition
-            if stop_index > analysis.frame_count:  # bail on final incomplete partition
-                break
+            for partition_size in partition_sizes_in_ms:
+                indices_per_partition = math.ceil(partition_size / hop_length_in_ms)
+                stop_index = start_index + indices_per_partition
+                if (
+                    stop_index > analysis.frame_count
+                ):  # bail on final incomplete partition
+                    break
 
-            # grab subsets
-            features = analysis.features
-            centroid = features["centroid"][start_index:stop_index]
-            is_voiced = features["is_voiced"][start_index:stop_index]
-            f0 = features["f0"][start_index:stop_index]
-            flatness = features["flatness"][start_index:stop_index]
-            mfcc = features["mfcc"].T[start_index:stop_index]
-            rms = features["rms"][start_index:stop_index]
-            rolloff = features["rolloff"][start_index:stop_index]
+                # grab subsets
+                features = analysis.features
+                centroid = features["centroid"][start_index:stop_index]
+                is_voiced = features["is_voiced"][start_index:stop_index]
+                f0 = features["f0"][start_index:stop_index]
+                flatness = features["flatness"][start_index:stop_index]
+                mfcc = features["mfcc"].T[start_index:stop_index]
+                rms = features["rms"][start_index:stop_index]
+                rolloff = features["rolloff"][start_index:stop_index]
 
-            # compute f0 for pitched partitions only
-            computed_f0 = -1.0
-            if computed_is_voiced := bool(numpy.median(is_voiced)):
-                computed_f0 = f0[numpy.array(is_voiced, dtype=numpy.bool_)].mean()
+                # compute f0 for pitched partitions only
+                computed_f0 = -1.0
+                if computed_is_voiced := bool(numpy.median(is_voiced)):
+                    computed_f0 = f0[numpy.array(is_voiced, dtype=numpy.bool_)].mean()
 
-            # hash the features to remove duplicates
-            # don't include f0 because it's not 100% deterministic
-            data = dict(
-                centroid=float(numpy.mean(centroid)),
-                flatness=float(numpy.mean(flatness)),
-                is_voiced=computed_is_voiced,
-                mfcc=numpy.mean(mfcc, axis=0).tolist(),
-                rms=float(numpy.mean(rms)),
-                rolloff=float(numpy.mean(rolloff)),
-            )
-            digest = hashlib.sha256(
-                json.dumps(data, sort_keys=True).encode()
-            ).hexdigest()
-            digests.add(digest)
-
-            partitions.append(
-                Partition(
-                    path=str(analysis.path),
-                    digest=digest,
-                    start_frame=start_index * analysis.hop_length,
-                    frame_count=(stop_index - start_index) * analysis.hop_length,
-                    f0=float(computed_f0),
-                    **data,
+                # hash the features to remove duplicates
+                # don't include f0 because it's not 100% deterministic
+                data = dict(
+                    centroid=float(numpy.mean(centroid)),
+                    flatness=float(numpy.mean(flatness)),
+                    is_voiced=computed_is_voiced,
+                    mfcc=numpy.mean(mfcc, axis=0).tolist(),
+                    rms=float(numpy.mean(rms)),
+                    rolloff=float(numpy.mean(rolloff)),
                 )
-            )
+                digest = hashlib.sha256(
+                    json.dumps(data, sort_keys=True).encode()
+                ).hexdigest()
+                digests.add(digest)
+
+                partitions.append(
+                    Partition(
+                        path=str(analysis.path),
+                        digest=digest,
+                        start_frame=start_index * analysis.hop_length,
+                        frame_count=(stop_index - start_index) * analysis.hop_length,
+                        f0=float(computed_f0),
+                        **data,
+                    )
+                )
 
         logger.info(
             f"Partitioned {analysis.path} "
@@ -263,6 +266,10 @@ def run(config: ArchonConfig):
     """
     Run the pipeline.
     """
+    if config.analysis_path.exists() and config.analysis_path.is_dir():
+        raise ValueError(
+            f"{config.analysis_path} cannot be a directory; did you mean {config.analysis_path / 'analysis.json'}?"
+        )
     if not config.root_path.exists():
         raise ValueError(config.analysis_path)
     logger.info(f"Running pipeline on {config.root_path} ...")
@@ -310,7 +317,11 @@ def run(config: ArchonConfig):
                     statistics[key][2] += sum_
                     statistics[key][3] += feature.shape[0]
 
-            for x in partition(analysis):
+            for x in partition(
+                analysis,
+                partition_sizes_in_ms=config.partition_sizes_in_ms,
+                partition_hop_in_ms=config.partition_hop_in_ms,
+            ):
                 if x.rms < config.silence_threshold_db:  # Ignore silence
                     continue
                 partitions[x.digest] = x  # Use the hash to ignore duplicates

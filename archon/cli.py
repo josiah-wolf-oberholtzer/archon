@@ -54,6 +54,9 @@ def parse_args(args=None):
     # run the pipeline
     pipeline_parser = subparsers.add_parser("run-pipeline")
     pipeline_parser.add_argument("path", help="path to analysis JSON", type=Path)
+    pipeline_parser.add_argument("--partition-hop-in-ms", default=500.0, type=float)
+    pipeline_parser.add_argument("--partition-sizes-in-ms", nargs="+", type=float)
+
     # validate analysis
     validate_parser = subparsers.add_parser("validate-analysis")
     validate_parser.add_argument("path", help="path to analysis JSON", type=Path)
@@ -68,6 +71,8 @@ def main(args=None):
     if parsed_args.command == "run-pipeline":
         from . import pipeline
 
+        config.partition_sizes_in_ms = parsed_args.partition_sizes_in_ms
+        config.partition_hop_in_ms = parsed_args.partition_hop_in_ms
         pipeline.run(config)
     if parsed_args.command == "validate-analysis":
         from . import pipeline

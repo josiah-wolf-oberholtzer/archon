@@ -45,15 +45,17 @@ class PatternFactory:
             buffer_id=ChoicePattern(
                 sequence=buffers,
                 forbid_repetitions=True,
-                iterations=random.randint(1, 3),
+                iterations=random.randint(1, 1),
             ),
-            delta=RandomPattern(0.0, 0.25),
-            dur=RandomPattern(2.0, 8.0),
+            delta=RandomPattern(0.0, 2.0),
+            dur=RandomPattern(4.0, 12.0),
             duration=0.0,
             gain=RandomPattern(-24, 0),
             out=out,
-            overlaps=ChoicePattern([2, 4]),
+            overlaps=ChoicePattern(
+                [1, 2, 2, 4, 4, 4, 4, 8, 8, 8, 16, 16], iterations=None
+            ),
             panning=RandomPattern(-1.0, 1.0),
-            start=RandomPattern(0.0, 1.0),
-            stop=RandomPattern(0.0, 1.0),
+            start=RandomPattern(0.0, 0.25),
+            stop=RandomPattern(0.75, 1.0),
         )

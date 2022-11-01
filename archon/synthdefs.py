@@ -6,16 +6,20 @@ from supriya.ugens import (  # RMS,
     MFCC,
     AllpassL,
     Amplitude,
+    BufDur,
     BufFrames,
     BufRateScale,
     BufWr,
     CombL,
     DelayN,
+    Dust,
     EnvGen,
     ExpRand,
+    GrainIn,
     Impulse,
     In,
     LFNoise1,
+    LFNoise2,
     LeakDC,
     Line,
     LocalBuf,
@@ -31,6 +35,7 @@ from supriya.ugens import (  # RMS,
     SpecFlatness,
     SpecPcile,
     Warp1,
+    WhiteNoise,
     XOut,
 )
 
@@ -177,19 +182,26 @@ def granulate(buffer_id=0, out=0):
 
 @synthdef()
 def warp(buffer_id=0, dur=1, gain=0.0, out=0, overlaps=4, panning=0.0, start=0, stop=1):
-    pointer = Line.kr(start=start, stop=stop, duration=dur)
+    duration = BufDur.kr(buffer_id=buffer_id)
+    pointer = (
+        Line.kr(start=start, stop=stop, duration=dur) + LFNoise2.kr(1.0) * 0.01
+    ).clip(0.0, 1.0)
     window = Line.kr(duration=dur, done_action=DoneAction.FREE_SYNTH).hanning_window()
+    window_size = LFNoise2.kr(
+        frequency=ExpRand.ir(minimum=0.01, maximum=0.1)
+    ).exponential_range(0.05, 0.5)
     signal = Warp1.ar(
         buffer_id=buffer_id,
-        pointer=pointer,
-        overlaps=overlaps,
         interpolation=4,
-        window_size=LFNoise1.kr(
-            frequency=ExpRand.ir(minimum=0.1, maximum=1.0)
-        ).exponential_range(0.1, 0.5),
+        overlaps=overlaps,
+        pointer=pointer * ((duration - window_size) / duration),
+        window_rand_ratio=0.15,
+        window_size=window_size,
     )
     signal = Pan2.ar(
-        source=signal * window, position=panning, level=gain.db_to_amplitude()
+        source=signal * window,
+        position=panning * LFNoise2.kr(frequency=0.5),
+        level=gain.db_to_amplitude(),
     )
     Out.ar(bus=out, source=signal)
 

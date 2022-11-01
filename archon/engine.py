@@ -15,7 +15,7 @@ from .buffers import BufferManager
 from .config import ArchonConfig
 from .patterns import PatternFactory
 from .query import Database
-from .synthdefs import build_online_analysis_synthdef
+from .synthdefs import build_online_analysis_synthdef, hdverb
 from .utils import scale
 
 logger = logging.getLogger(__name__)
@@ -75,6 +75,12 @@ class Engine:
                     pitch_detection_max_frequency=self.config.pitch_detection_max_frequency,
                     pitch_detection_min_frequency=self.config.pitch_detection_min_frequency,
                 ),
+            )
+            self.provider.add_synth(
+                in_=self.config.output_bus,
+                mix=0.1,
+                out=self.config.output_bus,
+                synthdef=hdverb,
             )
         logger.info("... server booted!")
 
