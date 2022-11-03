@@ -181,7 +181,17 @@ def granulate(buffer_id=0, out=0):
 
 
 @synthdef()
-def warp(buffer_id=0, dur=1, frequency_scaling=1, gain=0.0, out=0, overlaps=4, panning=0.0, start=0, stop=1):
+def warp(
+    buffer_id=0,
+    dur=1,
+    frequency_scaling=1,
+    gain=0.0,
+    out=0,
+    overlaps=4,
+    panning=0.0,
+    start=0,
+    stop=1,
+):
     duration = BufDur.kr(buffer_id=buffer_id)
     pointer = (
         Line.kr(start=start, stop=stop, duration=dur) + LFNoise2.kr(1.0) * 0.01

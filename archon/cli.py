@@ -43,8 +43,10 @@ def parse_args(args=None):
         default=True,
         help="use spectral features for querying (default: %(default)s)",
     )
-    harness_parser.add_argument("--inputs", type=int, default=8)
-    harness_parser.add_argument("--outputs", type=int, default=8)
+    harness_parser.add_argument("--input-count", type=int, default=8)
+    harness_parser.add_argument("--output-count", type=int, default=8)
+    harness_parser.add_argument("--input-device", required=False)
+    harness_parser.add_argument("--output-device", required=False)
     harness_parser.add_argument(
         "--input-bus", type=int, default=8, help="bus ID to run analysis against"
     )
@@ -83,10 +85,12 @@ def main(args=None):
 
         config.history_size = parsed_args.history_size
         config.input_bus = parsed_args.input_bus
-        config.inputs = parsed_args.inputs
+        config.input_count = parsed_args.input_count
+        config.input_device = parsed_args.input_device
         config.mfcc_count = parsed_args.mfcc_count
         config.output_bus = parsed_args.output_bus
-        config.outputs = parsed_args.outputs
+        config.output_count = parsed_args.output_count
+        config.output_device = parsed_args.output_device
         config.use_mfcc = parsed_args.use_mfcc
         config.use_pitch = parsed_args.use_pitch
         config.use_spectral = parsed_args.use_spectral

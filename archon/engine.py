@@ -55,8 +55,10 @@ class Engine:
             return
         await self.clock.start()
         await self.server.boot(
-            input_bus_channel_count=self.config.inputs,
-            output_bus_channel_count=self.config.outputs,
+            input_bus_channel_count=self.config.input_count,
+            input_device=self.config.input_device,
+            output_bus_channel_count=self.config.output_count,
+            output_device=self.config.output_device,
         )
         for address, handler in {
             "/analysis": self.on_analysis_osc_message,
