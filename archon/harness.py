@@ -49,6 +49,7 @@ def run(config: ArchonConfig):
     loop = asyncio.get_event_loop()
     harness = Harness(config=config, loop=loop)
     for signal_name in ("SIGINT", "SIGTSTP"):
+        # rewrite to support force-quitting on the second ctrl-C
         loop.add_signal_handler(
             getattr(signal, signal_name),
             functools.partial(harness.shutdown, signal_name),

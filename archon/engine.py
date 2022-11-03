@@ -221,7 +221,7 @@ class Engine:
             logger.debug(f"{self.server.status}")
             logger.info("Polling analysis engine ...")
             analysis_target, min_sleep, max_sleep = self.analysis_engine.emit()
-            # check if polyphony has capacity
+            # TODO: check if polyphony has capacity
             if analysis_target is not None:
                 await self.on_analysis_target(analysis_target)
             else:

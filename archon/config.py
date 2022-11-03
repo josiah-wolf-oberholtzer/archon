@@ -1,12 +1,12 @@
 import dataclasses
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 
 @dataclasses.dataclass
 class ArchonConfig:
     analysis_path: Path
-    history_size: int = 3
+    history_size: int = 10
     input_bus: int = 8
     inputs: int = 8
     mfcc_count: int = 13

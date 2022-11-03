@@ -50,12 +50,15 @@ class PatternFactory:
             delta=RandomPattern(0.0, 2.0),
             dur=RandomPattern(4.0, 12.0),
             duration=0.0,
+            frequency_scaling=ChoicePattern(
+                [1, -1], iterations=None,
+            ),
             gain=RandomPattern(-24, 0),
             out=out,
             overlaps=ChoicePattern(
                 [1, 2, 2, 4, 4, 4, 4, 8, 8, 8, 16, 16], iterations=None
             ),
             panning=RandomPattern(-1.0, 1.0),
-            start=RandomPattern(0.0, 0.25),
-            stop=RandomPattern(0.75, 1.0),
+            start=RandomPattern(0.0, 1.0),
+            stop=RandomPattern(0.0, 1.0),
         )
