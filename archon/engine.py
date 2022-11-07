@@ -15,7 +15,7 @@ from .buffers import BufferManager
 from .config import ArchonConfig
 from .patterns import PatternFactory
 from .query import Database
-from .synthdefs import build_online_analysis_synthdef, hdverb
+from .synthdefs import build_online_analysis_synthdef, hdverb, limiter
 from .utils import scale
 
 logger = logging.getLogger(__name__)
@@ -79,10 +79,17 @@ class Engine:
                 ),
             )
             self.provider.add_synth(
+                add_action="ADD_TO_TAIL",
                 in_=self.config.output_bus,
-                mix=0.1,
+                mix=self.config.reverb_mix,
                 out=self.config.output_bus,
                 synthdef=hdverb,
+            )
+            self.provider.add_synth(
+                add_action="ADD_TO_TAIL",
+                in_=self.config.output_bus,
+                out=self.config.output_bus,
+                synthdef=limiter,
             )
         logger.info("... server booted!")
 
@@ -146,8 +153,10 @@ class Engine:
         # Generate a UUID
         uuid = uuid4()
         # Allocate buffers
+        logger.info(f"Allocating {len(entries)} buffers with {uuid}")
         async with self.provider.at():
             buffers = self.buffer_manager.increment_multiple(entries, uuid)
+        logger.info("Emitting pattern...")
         # Generate the pattern
         pattern = self.pattern_factory.emit(
             analysis_target, buffers, out=self.config.output_bus
@@ -211,7 +220,7 @@ class Engine:
             if buffer_id is not None:
                 self.buffer_manager.increment(buffer_id, node_id)
         elif isinstance(event, StopEvent):
-            logger.debug(f"Pattern stopped: {player.uuid}")
+            logger.info(f"Pattern stopped: {player.uuid}")
             async with self.provider.at():
                 self.buffer_manager.decrement(player.uuid)
             self.pattern_players.pop(player.uuid)
@@ -220,12 +229,17 @@ class Engine:
     async def poll_analysis_engine(self) -> None:
         logger.info("Starting new analysis engine poller ...")
         while self.is_running:
-            logger.debug(f"{self.server.status}")
+            # status = " ".join([x.strip() for x in repr(self.server.status).split()])
+            # logger.info(status)
             logger.info("Polling analysis engine ...")
             analysis_target, min_sleep, max_sleep = self.analysis_engine.emit()
-            # TODO: check if polyphony has capacity
             if analysis_target is not None:
-                await self.on_analysis_target(analysis_target)
+                # TODO: check if polyphony has capacity
+                if len(self.pattern_futures) > self.config.polyphony:
+                    logger.warning(f"Too many patterns: {len(self.pattern_futures)}")
+                else:
+                    logger.info(f"Sufficient patterns: {len(self.pattern_futures)}")
+                    await self.on_analysis_target(analysis_target)
             else:
                 logger.info("Analysis engine not yet primed")
             await asyncio.sleep(scale(random.random(), 0, 1, min_sleep, max_sleep))

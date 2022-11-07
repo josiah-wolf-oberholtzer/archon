@@ -145,7 +145,12 @@ def analyze_via_nrt(
     path_count: int = 1,
 ) -> Tuple[numpy.ndarray, int]:
     sample_rate, duration, channel_count = describe_audio(path)
-    adjusted_frame_length = frame_length * (sample_rate // 44100)
+    print("???", path, sample_rate, duration, channel_count)
+    if sample_rate >= 44100:
+        sample_rate_ratio = sample_rate // 44100
+    else:
+        sample_rate_ratio = 1
+    adjusted_frame_length = frame_length * sample_rate_ratio
     hop_length = adjusted_frame_length * hop_ratio
     frame_count = int(duration * sample_rate / hop_length)
     analysis_duration = frame_count * hop_length / sample_rate
@@ -275,6 +280,9 @@ def run(config: ArchonConfig):
     logger.info(f"Running pipeline on {config.root_path} ...")
     with timer() as t:
         all_paths = sorted(config.root_path.glob("**/*.wav"))
+        for path in all_paths:
+            if not str(path).isascii():
+                raise ValueError(f"Non-ascii path found: {path}")
         path_count = len(all_paths)
         total_source_time = sum(
             librosa.get_duration(filename=path) for path in all_paths

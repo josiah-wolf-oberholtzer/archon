@@ -1,4 +1,5 @@
 import argparse
+import dataclasses
 from pathlib import Path
 
 from .config import ArchonConfig
@@ -6,7 +7,6 @@ from .config import ArchonConfig
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--log-level", default="info")
     subparsers = parser.add_subparsers(dest="command", required=True)
     # run the harness
     harness_parser = subparsers.add_parser("run-harness")
@@ -66,32 +66,29 @@ def parse_args(args=None):
 
 
 def main(args=None):
-    parsed_args = parse_args(args)
-    config = ArchonConfig(analysis_path=parsed_args.path.resolve())
+    parsed_args = vars(parse_args(args))
+    command = parsed_args.pop("command")
+    analysis_path = parsed_args.pop("path").resolve()
+
+    config = dataclasses.replace(
+        ArchonConfig(analysis_path=analysis_path),
+        **parsed_args,
+    )
+
     if not any([config.use_pitch, config.use_spectral, config.use_mfcc]):
         raise ValueError
-    if parsed_args.command == "run-pipeline":
+
+    if command == "run-pipeline":
         from . import pipeline
 
-        config.partition_sizes_in_ms = parsed_args.partition_sizes_in_ms
-        config.partition_hop_in_ms = parsed_args.partition_hop_in_ms
         pipeline.run(config)
-    if parsed_args.command == "validate-analysis":
+
+    if command == "validate-analysis":
         from . import pipeline
 
         pipeline.validate(config)
-    if parsed_args.command == "run-harness":
+
+    if command == "run-harness":
         from . import harness
 
-        config.history_size = parsed_args.history_size
-        config.input_bus = parsed_args.input_bus
-        config.input_count = parsed_args.input_count
-        config.input_device = parsed_args.input_device
-        config.mfcc_count = parsed_args.mfcc_count
-        config.output_bus = parsed_args.output_bus
-        config.output_count = parsed_args.output_count
-        config.output_device = parsed_args.output_device
-        config.use_mfcc = parsed_args.use_mfcc
-        config.use_pitch = parsed_args.use_pitch
-        config.use_spectral = parsed_args.use_spectral
         harness.run(config)

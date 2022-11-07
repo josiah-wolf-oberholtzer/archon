@@ -1,7 +1,8 @@
 from supriya import DoneAction
 from supriya.synthdefs import Envelope, synthdef
-from supriya.ugens import (  # RMS,
+from supriya.ugens import (
     FFT,
+    HPF,
     LPF,
     MFCC,
     AllpassL,
@@ -11,16 +12,19 @@ from supriya.ugens import (  # RMS,
     BufRateScale,
     BufWr,
     CombL,
+    CompanderD,
     DelayN,
     Dust,
     EnvGen,
     ExpRand,
-    GrainIn,
+    GrainBuf,
     Impulse,
     In,
+    LFDNoise3,
     LFNoise1,
     LFNoise2,
     LeakDC,
+    Limiter,
     Line,
     LocalBuf,
     Mix,
@@ -30,6 +34,7 @@ from supriya.ugens import (  # RMS,
     Pitch,
     PlayBuf,
     Rand,
+    ReplaceOut,
     SendReply,
     SpecCentroid,
     SpecFlatness,
@@ -176,44 +181,72 @@ def playback(
 
 
 @synthdef()
-def granulate(buffer_id=0, out=0):
-    pass
+def granulate(buffer_id=0, gain=0.0, out=0, panning=0.0, time_scaling=1.0):
+    duration = BufDur.kr(buffer_id=buffer_id) * time_scaling
+    window = Line.kr(
+        duration=duration, done_action=DoneAction.FREE_SYNTH
+    ).hanning_window()
+    signal = (
+        GrainBuf.ar(
+            buffer_id=buffer_id,
+            channel_count=2,
+            duration=WhiteNoise.ar().scale(-1, 1, 0.1, 0.2, exponential=True),
+            interpolate=4,
+            pan=WhiteNoise.ar(),
+            position=panning + (WhiteNoise.ar() * 0.1),
+            rate=WhiteNoise.ar().scale(-1, 1, -1, 0).semitones_to_ratio(),
+            trigger=Dust.ar(density=window.scale(0, 1, 0, 100)),
+        )
+        * window
+        * gain.db_to_amplitude()
+    )
+    Out.ar(bus=out, source=signal)
 
 
 @synthdef()
 def warp(
     buffer_id=0,
-    dur=1,
-    frequency_scaling=1,
     gain=0.0,
+    highpass_frequency=100.0,
     out=0,
     overlaps=4,
     panning=0.0,
-    start=0,
-    stop=1,
+    start=0.0,
+    stop=1.0,
+    time_scaling=1.0,
+    transposition=0.0,
 ):
-    duration = BufDur.kr(buffer_id=buffer_id)
-    pointer = (
-        Line.kr(start=start, stop=stop, duration=dur) + LFNoise2.kr(1.0) * 0.01
-    ).clip(0.0, 1.0)
-    window = Line.kr(duration=dur, done_action=DoneAction.FREE_SYNTH).hanning_window()
-    window_size = LFNoise2.kr(
-        frequency=ExpRand.ir(minimum=0.01, maximum=0.1)
-    ).exponential_range(0.05, 0.5)
-    signal = Warp1.ar(
-        buffer_id=buffer_id,
-        frequency_scaling=frequency_scaling,
-        interpolation=4,
-        overlaps=overlaps,
-        pointer=pointer * ((duration - window_size) / duration),
-        window_rand_ratio=0.15,
-        window_size=window_size,
-    )
-    signal = Pan2.ar(
-        source=signal * window,
-        position=panning * LFNoise2.kr(frequency=0.5),
-        level=gain.db_to_amplitude(),
-    )
+    duration = BufDur.kr(buffer_id=buffer_id) * time_scaling
+    window = Line.kr(
+        duration=duration, done_action=DoneAction.FREE_SYNTH
+    ).hanning_window()
+    pointer = Line.kr(start=start, stop=stop, duration=duration)
+    signals = []
+    for _ in range(2):
+        window_size = LFDNoise3.kr(
+            frequency=ExpRand.ir(minimum=0.01, maximum=0.1)
+        ).exponential_range(0.05, 0.5)
+        position = panning * LFNoise2.kr(frequency=0.5).scale(-1, 1, 0.5, 1)
+        frequency_scaling = (
+            transposition + LFNoise2.kr(0.1).scale(-1, 1, 0, 0.1)
+        ).semitones_to_ratio()
+        signal = Warp1.ar(
+            buffer_id=buffer_id,
+            frequency_scaling=frequency_scaling,
+            interpolation=4,
+            overlaps=overlaps,
+            pointer=(
+                (pointer + LFNoise2.kr(1.0) * 0.05).clip(0.0, 1.0)
+                * ((duration - window_size) / duration)
+            ),
+            window_rand_ratio=0.15,
+            window_size=window_size,
+        )
+        signal = HPF.ar(source=signal, frequency=highpass_frequency)
+        signal *= window * 0.5
+        signal = Pan2.ar(source=signal, position=position, level=gain.db_to_amplitude())
+        signals.append(signal)
+    signal = LeakDC.ar(Mix.multichannel(signal, 2)).tanh()
     Out.ar(bus=out, source=signal)
 
 
@@ -224,7 +257,22 @@ def compander(in_=0, out=0):
 
 @synthdef()
 def limiter(in_=0, out=0):
-    pass
+    source = In.ar(bus=in_, channel_count=2)
+    bands, rest = [], source
+    for frequency in [150, 1500, 6000]:
+        band = LPF.ar(source=rest, frequency=frequency)
+        bands.append(band)
+        rest = rest - band
+    bands.append(rest)
+    source = Mix.multichannel(
+        sources=[
+            CompanderD.ar(source=band, slope_above=0.25, threshold=0.25)
+            for band in bands
+        ],
+        channel_count=2,
+    )
+    source = Limiter.ar(source=source, duration=0.1)
+    ReplaceOut.ar(bus=out, source=source)
 
 
 @synthdef()

@@ -15,9 +15,13 @@ class ArchonConfig:
     output_count: int = 8
     output_device: Optional[str] = None
     partition_hop_in_ms: float = 500.0
-    partition_sizes_in_ms: List[float] = dataclasses.field(default_factory=list)
+    partition_sizes_in_ms: List[float] = dataclasses.field(
+        default_factory=lambda: [500]
+    )
     pitch_detection_max_frequency: float = 3000.0
-    pitch_detection_min_frequency: float = 60.0
+    pitch_detection_min_frequency: float = 200.0  # normally 60
+    polyphony: int = 10
+    reverb_mix: float = 0.1
     silence_threshold_db: float = -60.0
     use_mfcc: bool = True
     use_pitch: bool = True

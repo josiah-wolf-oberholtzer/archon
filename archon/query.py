@@ -44,7 +44,8 @@ class RangeSet:
         return (
             self.scale(centroid, self.centroid),
             self.scale(flatness, self.flatness),
-            self.scale(rms, self.rms),
+            # self.scale(rms, self.rms),
+            rms,
             self.scale(rolloff, self.rolloff),
         )
 

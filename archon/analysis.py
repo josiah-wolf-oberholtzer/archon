@@ -9,6 +9,7 @@ from .config import ArchonConfig
 
 class PatternFlavor(Enum):
     BASIC = "b"
+    GRANULATE = "g"
     WARP = "w"
 
 
@@ -72,7 +73,7 @@ class AnalysisEngine:
         self.index += 1
 
     def emit(self) -> Tuple[Optional[AnalysisTarget], float, float]:
-        min_sleep, max_sleep = 0.0, 1.0
+        min_sleep, max_sleep = 0.1, 1.0
         if self.index < self.config.history_size:
             return None, min_sleep, max_sleep
         f0 = -1.0
