@@ -10,7 +10,6 @@ import traceback
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-import librosa
 import numpy
 from joblib import Parallel, delayed
 from supriya import Session
@@ -75,6 +74,8 @@ class Partition:
 
 
 def describe_audio(path: Path) -> Tuple[int, float, int]:
+    import librosa
+
     sample_rate = librosa.get_samplerate(path)
     duration = librosa.get_duration(filename=path)
     stream = librosa.stream(
@@ -144,8 +145,9 @@ def analyze_via_nrt(
     path_index: int = 1,
     path_count: int = 1,
 ) -> Tuple[numpy.ndarray, int]:
+    import librosa
+
     sample_rate, duration, channel_count = describe_audio(path)
-    print("???", path, sample_rate, duration, channel_count)
     if sample_rate >= 44100:
         sample_rate_ratio = sample_rate // 44100
     else:
@@ -271,9 +273,12 @@ def run(config: ArchonConfig):
     """
     Run the pipeline.
     """
+    import librosa
+
     if config.analysis_path.exists() and config.analysis_path.is_dir():
         raise ValueError(
-            f"{config.analysis_path} cannot be a directory; did you mean {config.analysis_path / 'analysis.json'}?"
+            f"{config.analysis_path} cannot be a directory; "
+            f"did you mean {config.analysis_path / 'analysis.json'}?"
         )
     if not config.root_path.exists():
         raise ValueError(config.analysis_path)

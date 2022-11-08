@@ -30,3 +30,7 @@ class ArchonConfig:
     @property
     def root_path(self) -> Path:
         return self.analysis_path.parent
+
+    def validate(self):
+        if not any([self.use_pitch, self.use_spectral, self.use_mfcc]):
+            raise ValueError

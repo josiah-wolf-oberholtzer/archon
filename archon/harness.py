@@ -46,6 +46,8 @@ class Harness:
 
 
 def run(config: ArchonConfig):
+    if not any([config.use_pitch, config.use_spectral, config.use_mfcc]):
+        raise ValueError
     loop = asyncio.get_event_loop()
     harness = Harness(config=config, loop=loop)
     for signal_name in ("SIGINT", "SIGTSTP"):
